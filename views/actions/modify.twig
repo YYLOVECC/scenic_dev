@@ -1,0 +1,66 @@
+{% extends "@app/views/common/main.twig" %}
+
+{% block content %}
+
+    <div class="wh">
+        <a href="/actions">行为管理</a><i>></i>
+        {% if status == 'add' %}
+            新增
+        {% elseif status == 'update' %}
+            修改
+        {% endif %}
+    </div>
+    {% if app.session.hasFlash('error') %}
+        <div class="Validform_checktip Validform_wrong">{{ app.session.getFlash('error') }}</div>
+    {% endif %}
+    {{ html.beginForm('', 'post',{'id':'form'}) | raw }}
+    <table width="100%" border="0" class="lh50">
+        <tbody>
+        <tr>
+            <td width="90">行为名：</td>
+            <td>
+                {{ html.activeTextInput(model,'name',{'class':'ipt','size':'25','value':model.name, 'datatype': 's2-16', 'errormsg':'行为名长度为2-16位'}) | raw }}
+                {% if model.getErrors('name') %}
+                    <div class="Validform_checktip Validform_wrong">{{ model.getErrors('name')[0] }}</div>
+                {% else %}
+                    <div class="Validform_checktip"></div>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr>
+            <td width="90">行为英文：</td>
+            <td>
+                {{ html.activeTextInput(model,'e_name',{'class':'ipt','size':'25','value':model.e_name, 'datatype': '*2-26', 'errormsg':'英文名长度为2-26位'}) | raw }}
+                {% if model.getErrors('e_name') %}
+                    <div class="Validform_checktip Validform_wrong">{{ model.getErrors('e_name')[0] }}</div>
+                {% else %}
+                    <div class="Validform_checktip"></div>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr>
+            <td valign="top">行为描述：</td>
+            <td>
+                {{ html.activeTextarea(model,'description',{'value':model.description,'class':'area mt15'}) | raw }}
+            </td>
+        </tr>
+
+        <tr>
+            <td></td>
+            <td>
+                {{ html.submitButton('提交',{'class':'submit'}) | raw }}
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    {{ html.endForm()| raw }}
+
+{% endblock %}
+
+{% block js %}
+    <script>
+        $("#form").Validform({tiptype: 2});
+    </script>
+{% endblock %}

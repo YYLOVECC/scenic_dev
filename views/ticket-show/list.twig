@@ -1,0 +1,115 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title="门票列表" %}
+{% block content %}
+    <input type="hidden" name="module_url" id="module_url" value="{{ module_url }}">
+    <div class="gray_bg">
+        <form action="#" method="post">
+            <em class="ftd">创建时间</em>
+            <input name="xx" type="text" class="pt" id="riqi" autocomplete="off">
+            <em class="ftd">订单号</em><input id="order_sn" name="order_sn" type="text" class="pt" autocomplete="off">
+            {% if scenic_name_arr %}
+                <em class="ftd">景区名称</em>
+                <select name="scenic_name"  class="pt" id="scenic_name"><option value="-1">全部</option>
+                </select>
+            {% endif %}
+            <em class="ftd">手机号码</em><input id="mobile" name="mobile" type="text" class="pt" autocomplete="off">
+            <em class="ftd">游客姓名</em><input type="text" id="tourist_name" name="tourist_name" class="pt" placeholder="游客姓名" />
+            <em class="ftd">门票名称</em><input type="text" id="ticket_name" name="ticket_name" class="pt" placeholder="门票名称" />
+            <div class="clear"></div>
+            <div class="mt10">
+                <em class="ftd">订单状态</em>
+                <select id="order_status" name="order_status" class="pt"><option value="-1">全部</option>
+                    {% for key,value in order_status_arr %}
+                        <option value="{{ key }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+                <em class="ftd">支付状态</em>
+                <select id="pay_status" name="pay_status" class="pt"><option value="-1">全部</option>
+                    {% for key,value in pay_status_arr %}
+                        <option value="{{ key }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+
+                <em class="ftd">门票价格</em>
+                <select name="ticket_price" class="pt" id="pay_price">
+                    <option value="-1">全部</option>
+                    <option value="0-100">0-100</option>
+                    <option value="100-300">100-300</option>
+                    <option value="300-500">300-500</option>
+                    <option value="500-1000">500-1000</option>
+                    <option value="1000-5000">1000-5000</option>
+                    <option value="5000-10000">5000-10000</option>
+                    <option value="10000-20000">10000-20000</option>
+                    <option value="20000">20000以上</option>
+                </select>
+                <em class="ftd">客审人</em>
+                <select id="audit_user_id" name="audit_user_id"  class="pt">
+                    <option value="-1">全部</option>
+                    {% for user in audit_users %}
+                        <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+                <em class="ftd">经销商</em>
+                <select id="distributor_id" name="distributor_id"  class="pt">
+                    <option value="-1">全部</option>
+                    {% for user in distributor_users %}
+                        <option value="{{ user['id'] }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input  type="button" class="chaxun" value="查询" id="search_order_list_button">
+        </form>
+    </div>
+    <p class="lh20">&nbsp;</p>
+    <div class="mt10">
+        {% if 'delete' in actions %}
+            <a href="javascript:void(0);" class="gbtn mr10" id="uiDeleteBtn">删除</a>
+        {% endif %}
+    </div>
+
+    <div id="listDiv" class="fixedTab">
+
+        <table border="0" class="ctbl">
+            <thead class="thead">
+            <tr>
+                <th><input type="checkbox" id="ck_tr" autocomplete="off"></th>
+                <th>门票名称</th>
+                <th>景区名称</th>
+                <th>门票价格</th>
+                <th>数量</th>
+                <th>创建时间</th>
+                <th>有效时间</th>
+                <th>卖家备注</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="ticket_list_layer">
+            </tbody>
+        </table>
+    </div>
+    <div class="page alC">
+        <em class="pr10">已选择<span id="checked_count">0</span>条记录,</em>
+        <em class="pr10">共<span id="record_count">0</span>条记录，第<span id="page_str">0/0</span>页</em>
+        每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
+        <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
+    </div>
+
+{% endblock %}
+{% block js %}
+    <script type="text/template" id="ticket_list_template">
+        <% _.each(ticket_info, function(item, index) {
+        %>
+        <tr data-scenic-id="<%=item.id %>">
+            <td id="a1"><input type="checkbox" name="ckbox" id="ckbox_<%=order.id%>" value="<%=item.id%>" data-id="<%=item.id%>"></td>
+            <td><%=item.name%></td>
+            <td><em class="gray"><%=item.scenic_id%></em></td>
+            <td><%=item.price%></td>
+            <td><%=item.number%></td>
+            <td><%=item.created_at%></td>
+            <td><%=item.valid_time%></td>
+            <td><%=item.remark%></td>
+            <td><a href="#" class="detail-btn" data-order-id="<%= item.id %>">删除</a></td>
+        </tr>
+        <% }); %>
+    </script>
+{% endblock %}

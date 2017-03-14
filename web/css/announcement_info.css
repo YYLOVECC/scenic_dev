@@ -1,0 +1,5 @@
+#detail_info {width: 100%; margin: 25px auto; font-size: 14px; background:#F9F9F9;line-height: 25px;border:1px solid #dddddd;}
+#detail_info li {width:90%;margin:30px 15px;}
+#detail_info span {display: inline-block;vertical-align: top;}
+#detail_info .detail_info_title {width: 6%; }
+#detail_info .detail_info_content{width: 90%; }

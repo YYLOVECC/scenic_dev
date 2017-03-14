@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>登录</title>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="{{ url('css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url('css/main.css') }}">
+    <link href="{{ url('libs/layer/skin/layer.css') }}" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<nav class="navbar-static-top navbar-inverse">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">票务系统</a>
+        </div>
+    </div>
+</nav>
+
+
+<div class="container">
+    <div class="tabBox" id="tabBox">
+        <div class="tabctn">
+            <form action="" method="post" class="form-signin" role="form">
+                <input type="hidden" id="'ref" name="ref" value="">
+                <input type="email" name="email" id="email" class="margin-top-20 form-control" placeholder='请输入你的用户名或者邮箱' required/>
+                <input type="password" name="password" id="password" class="form-control" placeholder='请输入你的密码' required/>
+                <div class="form-group" style="position: relative">
+                    <span id="captcha_tips" class="control-label-left text-danger" style="display:none;position: absolute;top:10px;left: 310px;width: 220px;"></span>
+                </div>
+                <button class="btn btn-lg btn-primary login-btn-block pull-left" data-loading-text="正在加载..." type="button" onclick="get_valid(this)">登陆
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<nav class="navbar-default navbar-fixed-bottom">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <span class="footer-word">© 2017 licong.cc All rights reserved.</span>
+        </div>
+    </div>
+</nav>
+
+<script src="{{ url('js/jquery.js') }}"></script>
+<script src="{{ url('js/bootstrap.min.js') }}"></script>
+<script src="{{ url('js/login.js') }}"></script>
+<script src="{{ url('libs/layer/layer.js') }}"></script>
+<script>
+    /**
+     *登录验证
+     */
+    function get_valid() {
+        var captcha_tips = $('#captcha_tips');
+        captcha_tips.hide();
+        captcha_tips.attr('class', 'control-label-left text-danger');
+        //邮箱
+        var email = $.trim($('#email').val());
+        if(!email || email==undefined || email==null){
+            captcha_tips.text('邮箱不能为空');
+            captcha_tips.show();
+            return false;
+        }
+        //密码
+        var password = $.trim($('#password').val());
+        if(!password || password==undefined || password==null){
+            captcha_tips.text('密码不能为空');
+            captcha_tips.show();
+            return false;
+        }
+        $.ajax({
+            url: '/site/ajax-login-save',
+            data: {'_csrf':'{{ app.request.csrfToken }}', 'email':email, 'password':password},
+            type: 'post',
+            dataType: 'json',
+            success: function (data) {
+                if(data.success){
+                    captcha_tips.text('登录成功');
+                    captcha_tips.show();
+                    setInterval(function () {
+                        window.location.href='/';
+                    },500);
+                }else{
+                    captcha_tips.text(data.msg);
+                    captcha_tips.show();
+                }
+            }
+        });
+    }
+
+</script>
+</body>
+</html>

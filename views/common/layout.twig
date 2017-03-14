@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>首页</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="{{ url('css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{url('css/main.css')}}">
+    <link href="{{ url('libs/layer/skin/layer.css') }}" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<nav class="navbar-static-top navbar-inverse">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="/">修改密码</a>
+        </div>
+
+        {#<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">#}
+            {#<ul class="nav navbar-nav navbar-right">#}
+                {#<li class="dropdown">#}
+                    {#<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">#}
+                        {#欢迎您：{{ userIdentity.getUserInfo().name }}</a>#}
+                {#</li>#}
+            {#</ul>#}
+        {#</div>#}
+    </div>
+</nav>
+{% block content %}
+{% endblock %}
+
+<nav class="navbar-default navbar-fixed-bottom">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <span class="footer-word">© 2017 licong.cc All rights reserved.</span>
+        </div>
+
+        <div class="collapse navbar-collapse">
+            <a class="footer-word pull-right">返回顶部</a>
+        </div>
+    </div>
+</nav>
+
+<script src="{{ url('js/jquery.js') }}"></script>
+<script src="{{ url('js/bootstrap.min.js') }}"></script>
+<script src="{{ url('libs/layer/layer.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,93 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title = '功能权限' %}
+
+{% block content %}
+    <div class="gray_bg">
+        <form action="#" method="post">
+            <em class="ftd" style="width: 14px;">ID</em><input id="module_id" type="text" class="pt">
+            <em class="ftd">名称</em><input id="module_name" type="text" class="pt">
+            <input type="button" class="bbtn" id="search_features_list_button" value="搜索">
+            {% if 'add' in actions %}<input type="button" class="bbtn ml10"id="add_features_auth_button" value="新增" onclick="window.location.href='features-auth/add'">{% endif %}
+
+        </form>
+    </div>
+
+    <p class="lh30">&nbsp;</p>
+    <table width="100%" border="0" class="otbl">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>名称</th>
+                <th>上级模块</th>
+                <th>创建时间</th>
+                <th>路径</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="features_list_layer"></tbody>
+    </table>
+    <div class="page alC">
+        <em class="pr10">共<span id="record_count">0</span>条记录，第<span id="page_str">0/0</span>页</em>
+        每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
+        <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
+    </div>
+    <div id="tanbox" class="tanbox">
+        <!--行为管理-->
+        <div id="sbox" class="dbox hid">
+            <form action="#" method="post">
+                <h2 class="alC" id="feature_action">行为管理</h2>
+                <table border="0" class="ctbl">
+                    <thead>
+                    <tr>
+                        <th><input type="checkbox" onClick="listForm.select_all(this,'shopname')" autocomplete="off">
+                        </th>
+                        <th>行为名称</th>
+                    </tr>
+                    </thead>
+                    <tbody id="action_layer"></tbody>
+                </table>
+                <input type="hidden" id="s_name_id" name="u_id">
+                <input type="button" class="kbtn mr10" onclick="close_qx()" value="关闭">
+                <input type="button" class="bbtn" value="保存" onclick="save_actions()">
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script type="text/template" id="features_list_template">
+        <% _.each(features, function(feature, index) { %>
+        <tr>
+            <td><%= feature.id %></td>
+            <td><%= feature.name%></td>
+            <td><% if(feature.parent_id>0){ %><%= names[feature.parent_id] %><%}else{ %>--<% } %></td>
+            <td><%= feature.created_date %></td>
+            <td><% if(feature.page_url){ %><%= feature.page_url %><%}else{ %>--<% } %></td>
+            <td><% if(feature.is_display == 1){ %> 显示 <%}else{ %> 不显示 <% } %></td>
+            <td>
+                <% if($.inArray('edit', globals.actions)!=-1){ %>
+                <a href="javascript:void(0)" onClick="shuju(<%= feature.id %>, '<%=feature.name %>')" class="cblue">行为管理</a>
+                <em class="vline">|</em>
+                <a href="/features-auth/edit/<%=feature.id %>" class="cblue">修改</a>
+                <% } %>
+            </td>
+        </tr>
+        <% }); %>
+    </script>
+
+    <!-- 行为管理数据开始 -->
+    <script type="text/template" id="action_content">
+        <% _.each(actions, function(item, index){ %>
+        <tr data-id="<%=item.id %>">
+            <td><input type="checkbox" name="shopname" value="<%=item.id %>"<% if($.inArray(parseInt(item.id), actions_ids)!=-1){ %> checked<% } %>></td>
+            <td><%=item.name %></td>
+        </tr>
+        <% }); %>
+    </script>
+    <!-- 行为管理数据结束 -->
+
+    <script>
+        globals.actions=$.parseJSON('{{ actions|json_encode|raw }}');
+    </script>
+{% endblock %}

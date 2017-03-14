@@ -1,0 +1,81 @@
+    {% extends "@app/views/common/main.twig" %}
+
+    {% block content %}
+    <div class="zs_panel"><a href="/features-auth">功能管理</a><span> &gt;</span>
+    {% if status == 'add' %}
+        新增
+    {% elseif status == 'update' %}
+        修改
+    {% endif %}
+        {{ html.beginForm('', 'post',{'id':'form'}) | raw }}
+        <table width="100%" border="0" class="lh50">
+            <tbody>
+            <tr>
+                <td width="90">模块名：</td>
+                <td>
+                    {{ html.activeTextInput(model,'name',{'class':'ipt','size':'25','value':model.name, 'datatype': 's2-8', 'errormsg':'模块名长度为2-8位'}) | raw }}
+                    {% if model.getErrors('name') %}
+                        <div class="Validform_checktip Validform_wrong">{{ model.getErrors('name')[0] }}</div>
+                    {% else %}
+                        <div class="Validform_checktip"></div>
+                    {% endif %}
+                </td>
+            </tr>
+
+            <tr id="tree" style="display: none;">
+                <td valign="top">上级模块：</td>
+                <td>
+                    <div id="bumen">
+                        <label class="pr10"><input{% if not model.parent_id %} checked{% endif %} type="radio" name="is_parent" value="0" class="mr5"/>无</label>
+                        <label class="pr10"><input{% if model.parent_id %} checked{% endif %} type="radio" name="is_parent" value="1" class="mr5"/>有</label>
+                    </div>
+                    <div id="bumens" class="zTreeDemoBackground left"{% if not model.parent_id %} style="display: none;"{% endif %}>
+                        <ul id="feature_tree" class="ztree" style="background: none;border: none;overflow:auto;"></ul>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <td width="90">路径：</td>
+                <td>
+                    {{ html.activeTextInput(model,'page_url',{'class':'ipt','size':'25','value':model.page_url, 'errormsg':'路径长度为1-80位'}) | raw }}
+                    {% if model.getErrors('page_url') %}
+                        <div class="Validform_checktip Validform_wrong">{{ model.getErrors('page_url')[0] }}</div>
+                    {% else %}
+                        <div class="Validform_checktip"></div>
+                    {% endif %}
+                </td>
+            </tr>
+
+            <tr>
+                <td valign="top">模块描述：</td>
+                <td>
+                    {{ html.activeTextarea(model,'description',{'value':model.description,'class':'area mt15'}) | raw }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>是否显示</td>
+                <td>
+                    {{ html.activeCheckbox(model, 'is_display', {'value':1,'label':''}) |raw }}
+                </td>
+            </tr>
+
+            <tr>
+                <td></td>
+                <td>
+                    {{ html.submitButton('提交',{'class':'submit', 'onclick': 'return valid_from()'}) | raw }}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        {{ html.activeHiddenInput(model, 'id', {'id':'id', 'value':model.id}) |raw }}
+        {{ html.activeHiddenInput(model, 'parent_id', {'id':'parent_id', 'value':model.parent_id}) |raw }}
+        {{ html.endForm()| raw }}
+    {% endblock %}
+        {% block js %}
+        <script>
+            var parent_id = '{{ model.parent_id }}';
+        </script>
+        {% endblock %}

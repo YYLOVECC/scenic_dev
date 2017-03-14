@@ -1,0 +1,89 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title = '添加用户' %}
+
+{% block content %}
+    <div class="wh">
+        <a href="/users">用户管理</a><i>></i>添加用户
+    </div>
+
+
+    {{ html.beginForm('', 'post',{'id':'form'}) | raw }}
+    <table width="100%" border="0" class="lh50">
+        <tbody>
+        {#<tr>#}
+            {#<td width="80">编号：</td>#}
+            {#<td> {{ html.activeTextInput(user_form,'id',{'disabled':'','class':'ipt','size':'25'}) | raw }}</td>#}
+        {#</tr>#}
+        <tr>
+            <td>名称：</td>
+            <td>
+                {{ html.activeTextInput(user_form,'name',{'class':'ipt','size':'25', 'datatype': 's2-8', 'errormsg':'员工名称长度为2-8位'}) | raw }}
+                {% if model.getErrors('name') %}
+                    <div class="Validform_checktip Validform_wrong">{{ model.getErrors('name')[0] }}</div>
+                {% else %}
+                    <div class="Validform_checktip"></div>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>Email：</td>
+            <td>
+                {{ html.activeTextInput(user_form,'email',{'class':'ipt','size':'25','datatype': 'e', 'errormsg':'请输入email正确格式'}) | raw }}
+                {% if model.getErrors('email') %}
+                    <div class="Validform_checktip Validform_wrong">{{ model.getErrors('email')[0] }}</div>
+                {% else %}
+                    <div class="Validform_checktip"></div>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr id="tree" style="display: none;">
+            <td valign="top">角色：</td>
+            <td>
+                <div id="bumen">
+                    <label class="pr10"><input checked type="radio" name="roles_is_parent" value="0" class="mr5"/>无</label>
+                    <label class="pr10"><input type="radio" name="roles_is_parent" value="1" class="mr5"/>有</label>
+                </div>
+                <div id="bumens" class="zTreeDemoBackground left">
+                    <ul id="role_tree" class="ztree" style="background: none;border: none;overflow:auto;"></ul>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td valign="top">简介：</td>
+            <td>
+                {{ html.activeTextarea(user_form,'description',{'class':'area mt15'}) | raw }}
+            </td>
+        </tr>
+
+        <tr>
+            <td></td>
+            <td>
+                {{ html.submitButton('提交',{'class':'submit', 'onclick': 'return valid_form()'}) | raw }}
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    {{ html.activeHiddenInput(user_form, 'roles_id', {'id':'roles_id', 'value':0}) |raw }}
+    {{ html.endForm()| raw }}
+{% endblock %}
+
+{% block js %}
+    <script type="text/javascript">
+        var GLOBAL = {
+            valid_roles: $.parseJSON('{{ valid_roles|json_encode|raw }}'),
+            user_role_ids: '',
+            user_info: $.parseJSON('{{ user_info|json_encode|raw }}')
+        };
+        $(function () {
+            $('input:radio[name="roles_is_parent"][value="0"]').prop('checked', true);
+            $("#bumens").hide();
+            reload_znode();
+        });
+
+        $("#form").Validform({tiptype: 2});
+
+    </script>
+
+{% endblock %}

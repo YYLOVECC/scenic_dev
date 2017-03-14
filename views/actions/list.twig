@@ -1,0 +1,70 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title = '行为列表' %}
+
+{% block content %}
+    {% if 'add' in actions %}
+        <div class="gray_bg">
+            <input id="add_actions_list_button" type="button" class="bbtn" value="新增" onclick="window.location.href = '{{ url('actions/create') }}'">
+        </div>
+    {% endif %}
+
+    <p class="lh30">&nbsp;</p>
+
+    <table width="100%" border="0" class="otbl">
+
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>名称</th>
+            <th>英文名</th>
+            <th>创建时间</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+
+        <tbody id="actions_list_layer"></tbody>
+
+    </table>
+    <div class="page alC">
+        <em class="pr10">共<span id="record_count">0</span>条记录，第<span id="page_str">0/0</span>页</em>
+        每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
+        <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script type="text/template" id="actions_list_template">
+        <% _.each(tasks, function(task, index) { %>
+        <tr>
+            <td><%=task.id%></td>
+            <td><%=task.name%></td>
+            <td><%=task.e_name%></td>
+            <td><%=task.created_date %></td>
+            <td>
+                <% if(task.is_enable == 1){ %>
+                <b id="task_status_<%=task.id %>" class="blue">正常</b>
+                <% }else if(task.is_enable == 0){ %>
+                <b id="task_status_<%=task.id %>" class="gray">停用</b>
+                <% } %>
+            </td>
+            <td>
+                <% if($.inArray('edit', globals.actions)!=-1){ %>
+                <a href="/actions/modify?id=<%=task.id %>" class="cblue">修改</a>
+                <% } %>
+                <% if(task.is_enable == 1){ %>
+                <% if($.inArray('disable', globals.actions)!=-1){ %>
+                <em class="vline">|</em><a id="task_<%=task.id%>" href="javascript:void(0)" class="cblue" onclick="enable(<%=task.id%>,<%=task.is_enable%>)">停用</a>
+                <% } %>
+                <% }else if(task.is_enable == 0){ %>
+                <% if($.inArray('enable', globals.actions)!=-1){ %><em class="vline">|</em><a id="task_<%=task.id%>" href="javascript:void(0)" class="cblue" onclick="enable(<%=task.id%>,<%=task.is_enable%>)">启用</a><% } %>
+                <% } %>
+            </td>
+        </tr>
+        <% }); %>
+    </script>
+    <script>
+        globals.actions=$.parseJSON('{{ actions|json_encode|raw }}');
+    </script>
+
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title="编辑角色" %}
+{% block content %}
+    <div class="wh"><a href="/role">角色信息</a><i>></i>编辑角色</div>
+
+    {% if app.session.hasFlash('error') %}
+        <div class="Validform_checktip Validform_wrong">{{ app.session.getFlash('error') }}</div>
+    {% endif %}
+    {{ html.beginForm('', 'post', {'id': 'form'}) | raw }}
+    <table width="100%" border="0" class="lh50">
+        <tbody>
+        <tr>
+            <td width="60">角色ID
+            <td>
+                <input type="text" value="{{ role.id }}" class="ipt" size="25" disabled>
+            </td>
+        </tr>
+        <tr>
+            <td width="60">角色名称：</td>
+            <td>
+                {{ html.activeTextInput(role_form,'role_name', {'class':'ipt', 'size': "25", 'value': role.name, 'datatype': 's2-20', 'errormsg':'角色名称长度为2-20位'}) |raw }}
+                {% if role_form.getErrors('role_name') %}
+                    <div class="Validform_checktip Validform_wrong">{{ role_form.getErrors('role_name')[0] }}</div>
+                {% else %}
+                    <div class="Validform_checktip"></div>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr id="tree" style="display: none;">
+            <td valign="top">上级角色：</td>
+            <td>
+                <div id="bumen">
+                    <label class="pr10"><input{% if not role.parent_id %} checked{% endif %} type="radio" name="is_parent" value="0" class="mr5"/>无</label>
+                    <label class="pr10"><input{% if role.parent_id %} checked{% endif %} type="radio" name="is_parent" value="1" class="mr5"/>有</label>
+                </div>
+                <div id="bumens" class="zTreeDemoBackground left"{% if not role.parent_id %} style="display: none;"{% endif %}>
+                    <ul id="role_tree" class="ztree" style="background: none;border: none;overflow:auto;"></ul>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td valign="top">角色描述：</td>
+            <td>
+                <textarea name="RoleForm[description]" class="area mt15">{{ role.description }}</textarea>
+            </td>
+        </tr>
+        <tr>
+            <td>启用</td>
+            <td>
+                <input type="checkbox"{% if role.is_enable %} checked{% endif %} onclick="check_val(this)">
+                {{ html.activeHiddenInput(role_form, 'is_enable', {'id':'is_enable', 'value':role.is_enable}) |raw }}
+        </tr>
+        <tr>
+            <td></td>
+            <td>
+                {{ html.submitInput('提交', {'class':'submit', 'onclick': 'return valid_from()'}) | raw }}
+        </tr>
+        </tbody>
+    </table>
+    {{ html.activeHiddenInput(role_form, 'parent_id', {'id':'parent_id', 'value':role.parent_id}) |raw }}
+    {{ html.endForm()| raw }}
+{% endblock %}
+
+{% block js %}
+    <script>
+        $("#form").Validform({tiptype: 2});
+
+        $(function(){
+            var parent_id = parseInt('{{ role.parent_id }}');
+            if(isNullOrEmpty(parent_id)){
+                $('input:radio[name="is_parent"][value="0"]').prop('checked', true);
+            }else{
+                $('input:radio[name="is_parent"][value="1"]').prop('checked', true);
+            }
+            reload_znode(parent_id);
+        });
+    </script>
+{% endblock %}

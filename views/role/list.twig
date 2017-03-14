@@ -1,0 +1,127 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title="角色信息" %}
+{% block content %}
+
+    <div class="gray_bg">
+        <form action="#" method="post">
+            <em class="ftd">角色名称</em><input id="search_name" type="text" class="pt" autocomplete="off">
+            <em class="ftd">状态</em>
+            <select name="status" id="role_state" class="pt">
+                <option value="-1">全部</option>
+                <option value="1">正常</option>
+                <option value="0">停用</option>
+            </select>
+            <input type="button" class="bbtn" id="search_btn" value="查询">
+            {% if 'add' in actions %}
+                <input type="button" class="bbtn ml10" value="新增" onclick="window.location.href='/role/add'">
+            {% endif %}
+
+        </form>
+    </div>
+    <p class="lh30">&nbsp;</p>
+    <table width="100%" border="0" class="otbl">
+        <thead>
+        <tr>
+            <th>角色ID</th>
+            <th>角色名称</th>
+            <th>上级角色</th>
+            <th>角色描述</th>
+            <th>创建时间</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="role_content">
+
+        </tbody>
+    </table>
+    <div class="page alC">
+        <em class="pr10">共<span id="record_count">0</span>条记录，第<span id="page_str">0/0</span>页</em>
+        每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
+        <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
+    </div>
+
+    <div id="tanbox" class="tanbox">
+        <!--功能权限-->
+        <div id="gbox" class="dbox hid">
+            <h2 class="alC">功能权限</h2>
+
+            <form action="#" method="post">
+                <div class="zTreeDemoBackground">
+                    <ul id="feature_tree" class="ztree" style="background: none;border: none;overflow:auto;"></ul>
+                </div>
+                <input type="hidden" id="g_name_id" name="u_id">
+                <input type="button" class="kbtn mr10" onclick="close_gn()" value="关闭">
+                <input type="button" class="bbtn" value="保存" onclick="save_feature_privilege()">
+            </form>
+        </div>
+    </div>
+{% endblock %}
+{% block js %}
+    <!-- 角色数据模板开始 -->
+    <script type="text/template" id="roles">
+        <% _.each(roles, function(item, index) { %>
+        <tr data-id="<%= item.id %>">
+            <td><a href='javascript:void(0);'><%= item.id %></a></td>
+            <td><%= item.name %></td>
+            <td><% if(item.parent_name){ %><%= item.parent_name %><% }else{ %>--<% } %></td>
+            <td><%= item.description %></td>
+            <td><% if(item.created_date){ %><%= item.created_date %><% }else{ %>--<% } %></td>
+            <td id="state_<%=item.id %>"><% if(parseInt(item.is_enable)){ %><b class="blue">正常</b><% }else{ %><b class="gray">停用</b><% } %>
+            </td>
+            <td>
+                <a href="/role/<%=item.id %>/user_list" class="cblue">用户列表</a>
+                <% if($.inArray('edit_feature', GLOBAL.actions)!=-1){ %>
+                    <em class="vline">|</em><a href="#" class="cblue" onClick="gongneng(<%= item.id %>)">功能权限</a>
+                <% } %>
+                <span id="operate_<%=item.id%>">
+                    <% if(parseInt(item.is_enable)){ %>
+                        <% if($.inArray('edit', GLOBAL.actions)!=-1){ %>
+                            <em class="vline">|</em><a href="/role/edit/<%=item.id %>" class="cblue">修改</a>
+                        <% } %>
+                        <% if($.inArray('disable', GLOBAL.actions)!=-1 && item.id !=1){ %>
+                            <em class="vline">|</em><a href="javascript:void(0);" onclick="disable_role(<%= item.id %>, <%= item.is_enable %>)" class="cblue">停用</a>
+                        <% } %>
+                    <% }else{ %>
+                        <% if($.inArray('enable', GLOBAL.actions)!=-1 && item.id !=1){ %>
+                            <em class="vline">|</em><a href="javascript:void(0);" onclick="enable_role(<%= item.id %>, <%= item.is_enable %>)" class="cblue">启用</a>
+                        <% } %>
+                        <% if($.inArray('delete', GLOBAL.actions)!=-1 && item.id !=1){ %>
+                            <em class="vline">|</em><a href="javascript:void(0)" onclick="delete_role(<%=item.id%>)" class="cblue">删除</a>
+                        <% } %>
+                    <% } %></span>
+            </td>
+        </tr>
+        <% }); %>
+    </script>
+    <!-- 角色数据模板结束 -->
+
+    <script>
+        GLOBAL.actions=$.parseJSON('{{ actions|json_encode|raw }}');
+        $(document).ready(function () {
+            //清空检索条件
+            $('#role_state').val(-1);
+
+            listForm.loadList();
+            $('#search_btn').click(function(){
+
+                listForm.loadList();
+            });
+
+            // 固定滚动
+            var fixedTab = $('.fixedTab'),
+                popHead = $('.popHead'),
+                fixedTabHead = $('.thead th'),
+                popBtn = $('.popBtn');
+            fixedTab.bind('scroll',function(e){
+                var top = $(this).scrollTop();
+                var popBtnTop = top + 540;
+                popHead.css('top',top);
+                fixedTabHead.css('top',top);
+                popBtn.css('top',popBtnTop);
+            });
+        });
+
+    </script>
+
+{% endblock %}

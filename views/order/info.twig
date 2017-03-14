@@ -1,0 +1,141 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title="订单详情" %}
+{% block content %}
+    {% set order_status = order_info.order_status %}
+    {% set pay_type = order_info.pay_type %}
+    {% set pay_status = order_info.pay_status %}
+    <input type="hidden" id="order_info_pay_status" value="{{ order_info.pay_status }}" />
+    <input type="hidden" name="order_id" value="{{ order_info.id }}" id="order_id" />
+    <input type="hidden" name="module_url" value="{{ module_url }}" id="module_url" />
+    <div class="ov">
+        {% if 'audit' in actions and order_status == 2 %}
+            <a href="javascript:void(0);" class="gbtn mr10" id="auditBtn">审核</a>
+        {% endif %}
+        {% if 'review' in actions and order_status == 3 %}
+            <a href="javascript:void(0);" class="gbtn mr10" id="reviewBtn">反审</a>
+        {% endif %}
+        {% if 'refund_audit' in actions and pay_status == 1%}
+            <a href="javascript:void(0);" class="gbtn mr10" id="refundAuditBtn">退款审核</a>
+        {% endif %}
+        <a href="javascript:void(0);" id="zs_rzbtn" class="right f12"><em class="fvg">&#xe806;</em> 查看操作日志</a>
+    </div>
+    <div id="zs_rz" class="hid">
+        <table width="100%" border="0" class="otbl">
+            <thead>
+            <tr>
+                <th>操作人</th>
+                <th>操作时间</th>
+                <th>操作类别</th>
+            </tr>
+            </thead>
+            <tbody id="operation-list-content">
+            </tbody>
+        </table>
+    </div>
+    <p class="lh20">&nbsp;</p>
+    <div class="lh50"><b class="lhh">订单信息</b>
+        {% if (order_status == 1 or order_status == 2) and current_audit_user  %}
+            <em class="red pl10">{{ current_audit_user.name }}正在处理该订单！</em>
+        {% endif %}
+    </div>
+
+    <div class="lh30">
+        <b class="c3">订单状态:</b>
+        <em class="red" id="order_status_{{ order_info.id }}">{{ order_info.order_status_str }}</em>
+        <b class="c3">付款状态:</b>
+        <em class="red" id="order_status_{{ order_info.id }}">{{ order_info.pay_status_str }}</em>
+        <em class="pl10">应付金额：</em><em class="red">￥</em><em class="red">{{ order_info.pay_price }}</em>
+                (已付金额:<em class="red">￥</em><em class="red" id="paid_price">{{ order_info.paid_price }})</em>
+    </div>
+
+    <table width="100%" border="0" class="xtbl">
+        <tr>
+            <td width="40%">订单号：{{ order_info.sn }}</td>
+            <td width="30%">订单总额：<em id="pay_price">￥{{ order_info.pay_price}}</em></td>
+            <td width="30%">景点名称：{{ order_info.scenic_name }}</td>
+        </tr>
+        <tr>
+            <td width="40%">经销商：{{ order_info.distributor_name }}</td>
+            <td width="30%">审核人：{{ order_info.audit_user_name}}</td>
+            <td width="%30">审核时间：{{ order_info.audit_at }}</td>
+        </tr>
+        <tr>
+            <td width="30%">预定时间：{{ order_info.created_at }}</td>
+            <td width="40%">入园时间：{{ order_info.admission_time|date('Y-m-d G:i:s') }}</td>
+            <td width="30%">游玩时间：{{ order_info.play_time|date('Y-m-d G:i:s') }}</em></td>
+        </tr>
+        <tr>
+            <td width="40%">游客姓名：{% if order_info.tourist_name %}{{ order_info.tourist_name }}{% else %}匿名用户{% endif %}</td>
+            <td width="30%">备注：{{ order_info.remark }}</td>
+            <td></td>
+        </tr>
+    </table>
+    <p class="lh20">&nbsp;</p>
+    {% if order_details %}
+        <div class="lh30">
+            <b class="lhh">订单明细</b>
+        </div>
+        <table class="ctbl" border="0" width="100%">
+            <thead>
+            <tr>
+                <th width="20%">订单号</th>
+                <th width="15%">景区名称</th>
+                <th width="15%">门票名称</th>
+                <th width="15%">门票价格</th>
+                <th width="15%">门票数量</th>
+                <th width="20%">门票总额</th>
+            </tr>
+            </thead>
+            <tbody id="all_order_details">
+            {% for order_detail in order_details  %}
+                <tr>
+                    <td>{{ order_detail.order_sn }}</td>
+                    <td>{{ order_detail.scenic_name }}</td>
+                    <td>{{ order_detail.ticket_name }}</td>
+                    <td>{{ order_detail.ticket_price }}</td>
+                    <td>{{ order_detail.ticket_numbers }}</td>
+                    <td>{{ order_detail.ticket_amount }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    <p class="lh20">&nbsp;</p>
+    <div class="lh30">
+        <b class="lhh">支付明细</b>
+    </div>
+    <table class="ctbl" border="0" width="100%">
+        <thead>
+        <tr><th width="15%">交易流水号</th>
+            <th width="15%">支付方式</th>
+            <th width="15%">支付途径</th>
+            <th width="15%">账号</th>
+            <th width="15%">付款时间</th>
+            <th width="15%">金额</th>
+            <th width="10%">备注</th>
+        </tr>
+        </thead>
+        <tbody id="all_payment_tb">
+        {% for payment_detail in order_payment_details  %}
+            <tr>
+                <td>{{ payment_detail.debit_note }}</td>
+                <td>{{ payment_detail.pay_type_str }}</td>
+                <td>{{ payment_detail.pay_mode_str }}</td>
+                <td>{{ payment_detail.pay_account }}</td>
+                <td>{{ payment_detail.pay_at| date('Y-m-d G:i:s') }}</td>
+                <td>{{ payment_detail.pay_price }}</td>
+                <td>{{ payment_detail.remark }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <script type="text/template" id="operation-item-template">
+        <% _.each(logs, function(item, index){ %>
+        <tr>
+            <td><%=item.user_name%></td>
+            <td><%=item.created_at_str%></td>
+            <td><% if(item.content){ %><%=item.content %><% }else{ %><%=item.action_name%><% } %></td>
+        </tr>
+        <% }); %>
+    </script>
+{% endblock %}

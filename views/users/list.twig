@@ -1,0 +1,81 @@
+{% extends "@app/views/common/main.twig" %}
+
+{% set title = "用户管理" %}
+{% block content %}
+    <div class="gray_bg">
+        <form action="#" method="post">
+            <em class="ftd">编号</em><input id="id" name="id" type="text" class="pt" />
+            <em class="ftd">名称</em><input id="name" name="name" type="text" class="pt" />
+            <em class="ftd">Email</em><input id="email" name="email" type="text" class="pt" />
+            <em class="ftd">状态</em>
+
+            <select id="status" name="status" class="pt">
+                <option value="-1" selected>全部</option>
+                <option value="0">正常</option>
+                <option value="1">停用</option>
+            </select>
+            <div class="clear"></div>
+
+            <div class="mt10">
+                <em class="ftd">角色</em>
+                <select id="role_id" name="ids" class="pt">
+                    <option value="-1" selected>全部</option>
+                    {% if roles %}
+                        {% for role in roles %}
+                            <option value="{{ role.id }}">{{ role.name }}</option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            <input type="button" class="bbtn ml10" id="search_user_btn" value="查询">
+            {% if 'add' in actions %}
+                <input type="button" class="bbtn ml10" value="新增" onclick="window.location.href='/users/add'">
+            {% endif %}
+            </div>
+        </form>
+    </div>
+    <p class="lh30">&nbsp;</p>
+    <table width="100%" border="0" class="otbl">
+        <thead>
+        <tr>
+            <th>编号</th>
+            <th>名称</th>
+            <th>Email</th>
+            {#<th>员工简介</th>#}
+            <th>创建时间</th>
+            {#<th>上次登录时间</th>#}
+            <th>角色</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+
+        <tbody id="users_list_layer"></tbody>
+
+    </table>
+    <div class="page alC">
+        <em class="pr10">共<span id="record_count">0</span>条记录，第<span id="page_str">0/0</span>页</em>
+        每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
+        <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
+    </div>
+
+    <script type="text/template" id="item_user_template">
+        <% _.each(users, function(item, index) { %>
+        <tr>
+            <td><%= item.id %></td>
+            <td><%= item.name %></td>
+            <td><%= item.email %></td>
+            <td><%= item.created_date %></td>
+            <td><%= item.role_names %></td>
+            <td><em class="blue"><% if(item.is_enable == 1){ %>正常<% }else{ %>停用<% } %></em></td>
+            <td>
+                <a href="/users/edit?id=<%=item.id %>" class="cblue">修改</a>
+            </td>
+        </tr>
+        <% }); %>
+    </script>
+    <script>
+        GLOBAL.actions=$.parseJSON('{{ actions|json_encode|raw }}');
+    </script>
+{% endblock %}
+{% block js %}
+{% endblock %}

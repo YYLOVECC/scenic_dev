@@ -1,0 +1,125 @@
+{% extends "@app/views/common/main.twig" %}
+{% set title= role.name ~ '-用户列表' %}
+{% block content %}
+    <div class="wh"><a href="/role">角色管理</a><i>></i>角色用户列表</div>
+    <div class="gray_bg">
+        <form action="#" method="post">
+            <em class="ftd">ID</em><input id="user_id" type="text" class="pt" autocomplete="off">
+            <em class="ftd">姓名</em><input id="user_name" type="text" class="pt" autocomplete="off">
+            <em class="ftd">状态</em>
+            <select name="status" id="user_state" class="pt">
+                <option value="-1">全部</option>
+                <option value="1">正常</option>
+                <option value="0">停用</option>
+            </select>
+            <input type="button" class="bbtn" id="search_btn" value="查询">
+
+        </form>
+    </div>
+    <p class="lh30">&nbsp;</p>
+    <table width="100%" border="0" class="otbl">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>姓名</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th>授权时间</th>
+        </tr>
+        </thead>
+        <tbody id="role_users_content">
+
+        </tbody>
+    </table>
+    <div class="page alC">
+        <em class="pr10">共<span id="record_count">0</span>条记录，第<span id="page_str">0/0</span>页</em>
+        每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
+        <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
+    </div>
+
+{% endblock %}
+{% block js %}
+    <script type="text/template" id="role_users">
+        <% _.each(roles, function(item, index) { %>
+        <tr data-id="<%= item.id %>">
+            <td><a href='javascript:void(0);'><%= item.id %></a></td>
+            <td><%= item.user_name %></td>
+            <td><% if(parseInt(item.is_enable)){ %><b class="blue">正常</b><% }else{ %><b class="gray">停用</b><% } %>
+            <td><% if(item.user_created_date){ %><%= item.user_created_date %><% }else{ %>--<% } %></td>
+            <td><% if(item.created_date){ %><%= item.created_date %><% }else{ %>--<% } %></td>
+
+        </tr>
+        <% }); %>
+    </script>
+
+    <script>
+        //翻页参数实例
+        listForm.recordCount = 0;
+        listForm.pageCount = 0;
+        listForm.page = '1';//当前页
+        listForm.page_size = '15';//每页显示数量
+
+        listForm.loadList = function(){
+            //重置快速翻页的页码
+            if ($('#gotoPage').val() != listForm.page) {
+                $('#gotoPage').val(listForm.page);
+            }
+            var start_num = listForm.get_start_num();
+            var url = '/role/ajax/user_list';
+            //查询参数
+            var post_data = {'_csrf': '{{ app.request.csrfToken }}', 'role_id': '{{ role.id }}'};
+            //员工id
+            var user_id = $.trim($('#user_id').val());
+            if(user_id){
+                post_data['user_id'] = user_id;
+            }else{
+                //员工姓名
+                var user_name = $.trim($('#user_name').val());
+                if(user_name){
+                    post_data['user_name'] = user_name;
+                }
+                post_data['user_state'] = $('#user_state').val();
+
+            }
+
+            //翻页参数
+            post_data['start'] = start_num;
+            post_data['page_size'] = listForm.page_size;
+
+            $.ajax({
+                url: url,
+                data: post_data,
+                type: 'POST',
+                dataType: 'json',
+                async: false,
+                success: function (rdata) {
+                    if (rdata.success){
+                        //初始化部分
+                        listForm.recordCount = rdata.count;
+                        $('#record_count').html(rdata.count);
+                        var data_page_num = Math.ceil(rdata.count / listForm.page_size);
+                        listForm.pageCount = data_page_num;
+                        $('#page_str').html(listForm.page + '/' + data_page_num);
+                        //初始化部分结束
+
+                        var result = _.template($('#role_users').html());
+                        $('#role_users_content').html(result({roles: rdata.data}));
+                    }
+                }
+            });
+        };
+        <!-- 列表数据渲染结束 -->
+
+        $(document).ready(function () {
+            //清空检索条件
+            $('#role_state').val(-1);
+
+            listForm.loadList();
+            $('#search_btn').click(function(){
+                listForm.loadList();
+            });
+        });
+
+    </script>
+
+{% endblock %}
