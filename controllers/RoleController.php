@@ -86,7 +86,6 @@ class RoleController extends SuperController
             $formData = $request->post('RoleForm');
             $is_parent = $request->post('is_parent', 0);
             $valid = true;
-
             #获取当前新增角色的level及上级角色信息
             if(!$is_parent){
                 $formData['parent_id'] = 0;

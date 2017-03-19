@@ -203,6 +203,11 @@ class UsersService
             }
 
             $transaction->commit();
+            //清除用户权限缓存
+            RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_'.$form->id);
+            RedisUtil::hdel(Yii::$app->params['privilege_name'], 'user_left_menu_'.$form->id);
+            RedisUtil::hdel(Yii::$app->params['privilege_name'], 'data_privilege_'.$form->id);
+            RedisUtil::hdel(Yii::$app->params['privilege_name'], 'field_privilege_'.$form->id);
 
         } catch (Exception $e) {
             $transaction->rollBack();
@@ -317,5 +322,62 @@ class UsersService
         $user_model = new AdminUsersModel();
         $users = $user_model->findByPks($user_ids);
         return $users;
+    }
+
+    /**
+     * 停用用户
+     * @param $user_id
+     * @return array
+     */
+    public function disableUser($user_id)
+    {
+        if (empty($user_id)) {
+            return ['success'=>false, 'msg'=>'参数传递不完整'];
+        }
+        $connection = Yii::$app->db;
+        $transaction = $connection->beginTransaction();
+        try{
+            $admin_user_model = new AdminUsersModel();
+            $admin_user_model->setId($user_id);
+            $admin_user_model->setIsEnable(ConstantConfig::ENABLE_FALSE);
+            $admin_user_model->setUpdatedAt(Yii::$app->params['current_time']);
+            $result = $admin_user_model->disable();
+            if (!$result) {
+                return ['success'=>false, 'msg'=>'停启用状态更新失败'];
+            }
+            $transaction->commit();
+            return ['success'=> false, 'msg'=>'停用用户成功'];
+        } catch(Exception $e) {
+            $transaction->rollBack();
+            return ['success'=> false, 'msg'=>'停用用户失败'];
+        }
+    }
+    /**
+     * 启用用户
+     * @param $user_id
+     * @return array
+     */
+    public function enableUser($user_id)
+    {
+        if (empty($user_id)) {
+            return ['success'=>false, 'msg'=>'参数传递不完整'];
+        }
+        $connection = Yii::$app->db;
+        $transaction = $connection->beginTransaction();
+        try{
+            $admin_user_model = new AdminUsersModel();
+            $admin_user_model->setId($user_id);
+            $admin_user_model->setIsEnable(ConstantConfig::ENABLE_TRUE);
+            $admin_user_model->setUpdatedAt(Yii::$app->params['current_time']);
+            $result = $admin_user_model->enable();
+            if (!$result) {
+                return ['success'=>false, 'msg'=>'停启用状态更新失败'];
+            }
+            $transaction->commit();
+            return ['success'=> false, 'msg'=>'启用用户成功'];
+        } catch(Exception $e) {
+            $transaction->rollBack();
+            return ['success'=> false, 'msg'=>'启用用户失败'];
+        }
     }
 }

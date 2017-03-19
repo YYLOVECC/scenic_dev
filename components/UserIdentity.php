@@ -9,6 +9,7 @@ use app\services\func\RoleService;
 use app\services\role\CRoleService;
 use app\util\AESUtils;
 use app\util\ArrayUtil;
+use app\util\RedisUtil;
 use Yii;
 use Exception;
 use app\util\YiiCookie;
@@ -139,24 +140,29 @@ class UserIdentity
         UserIdentity::setUserRoleInfo($role_ids);
         return true;
     }
-
     /**
      * 获取用户权限菜单
      */
     public static function getUserLeftMenus()
     {
         $user_info = UserIdentity::$_user_info;
-        if (empty($user_info)) {
+        if(empty($user_info)){
             return [];
         }
         $user_id = $user_info['id'];
-        //获取用户功能权限
+        //缓存获取用户菜单权限
+        $data = json_decode(RedisUtil::hmget(Yii::$app->params['privilege_name'],  'user_left_menu_' . $user_id), true);
+        if(!empty($data)){
+            return $data;
+        }
+        //获取用户功能权限xxxxx
         $role_service = new RoleService();
         $user_feature_privileges = $role_service->getRoleFeaturePrivilegesByUserId($user_id);
-        if (empty($user_feature_privileges)) {
+        if(empty($user_feature_privileges)){
             return [];
         }
-        UserIdentity::setUserFeaturePrivilege($user_feature_privileges);
+        self::setUserFeaturePrivilege($user_feature_privileges);
+
         //定义遍历后的数组
         $data = [];
         foreach ($user_feature_privileges as $k => $v) {
@@ -170,7 +176,7 @@ class UserIdentity
         $data = array_reverse($data);
         foreach ($data as &$d) {
             foreach ($user_feature_privileges as $k => $v) {
-                if (intval($v['parent_id']) == intval($d['id'])) {
+                if ((int)$v['parent_id'] == (int)$d['id']) {
                     unset($v['actions']);
                     array_push($d['children'], $v);
                     unset($user_feature_privileges[$k]);
@@ -178,6 +184,10 @@ class UserIdentity
             }
             $d['children'] = array_reverse($d['children']);
         }
+        //用户左侧菜单缓存
+        $expire_time = 2*24*60*60;//缓存2天
+        RedisUtil::hmset(Yii::$app->params['privilege_name'], 'user_left_menu_' . $user_id,  json_encode($data), null,
+            $expire_time);
         return $data;
     }
 }

@@ -25,7 +25,7 @@ class AdminUsersModel
     private $_ids;
     private $_role_id;
     private $_column_str = 'id,email,name,password,salt,description,create_user_id,create_user_name,update_user_id,update_user_name,is_enable,status,created_at,updated_at';
-
+    private $_table = "admin_users";
     /**
      * @param mixed $ids
      */
@@ -546,12 +546,54 @@ class AdminUsersModel
         $result = $command->execute();
         return $result;
     }
+
+    /**
+     * 获取全部用户信息
+     * @return array
+     */
     public function getAllUserInfo() {
         $connection = Yii::$app->db;
-        $sql = "SELECT name, email from admin_users WHERE status = 0";
+        $sql = "SELECT * from admin_users WHERE status = 0";
         $command = $connection->createCommand($sql);
         $result = $command->queryAll();
         return $result;
 
+    }
+
+    /**
+     * 停用用户
+     * @return int
+     * @throws Exception
+     */
+    public function disable() {
+        $sql = "UPDATE " . $this->_table . " SET updated_at=:updated_at, is_enable=:is_enable WHERE id=:id";
+        $connection = Yii::$app->db;
+        $command = $connection->createCommand($sql);
+        try {
+            $command->bindParam(':id', $this->_id, PDO::PARAM_INT);
+            $command->bindParam(':updated_at', $this->_updated_at, PDO::PARAM_INT);
+            $command->bindParam(':is_enable', $this->_is_enable, PDO::PARAM_INT);
+            return $command->execute();
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+    /**
+     * 启用用户
+     * @return int
+     * @throws Exception
+     */
+    public function enable() {
+        $sql = "UPDATE " . $this->_table . " SET updated_at=:updated_at, is_enable=:is_enable WHERE id=:id";
+        $connection = Yii::$app->db;
+        $command = $connection->createCommand($sql);
+        try {
+            $command->bindParam(':id', $this->_id, PDO::PARAM_INT);
+            $command->bindParam(':updated_at', $this->_updated_at, PDO::PARAM_INT);
+            $command->bindParam(':is_enable', $this->_is_enable, PDO::PARAM_INT);
+            return $command->execute();
+        } catch (Exception $e) {
+            throw $e;
+        }
     }
 }

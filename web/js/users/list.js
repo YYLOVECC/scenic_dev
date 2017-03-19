@@ -84,5 +84,66 @@ $(function() {
         listForm.page = 1;
         listForm.loadList();
     });
+    //启用用户
+    $('#users_list_layer').on('click', '.enable', function(evt){
+        var currentTarget = $(evt.currentTarget),
+            user_id = currentTarget.data('id');
+        var cancel = function(index) {
+            layer.close(index);
+        };
+        var yes = function() {
+            $.ajax({
+                type: 'post',
+                url: '/users/ajax-enable-user',
+                data:{'_csrf':GLOBAL.csrf, 'id':user_id},
+                dataType:'json',
+                success:function(data){
+                    if (data.success) {
+                        layer.alert(data.msg, function (index) {
+                            layer.close(index);
+                            listForm.page = '1';
+                            listForm.loadList();
+                        })
+                    } else {
+                        layer.alert(data.msg);
+                    }
+                    window.location.reload();
+                }
+
+            })
+        };
+        layer.confirm('确定启用该用户?', yes, cancel);
+    });
+    //停用用户
+    $('#users_list_layer').on('click', '.disable', function(evt) {
+        var currentTarget = $(evt.currentTarget),
+            user_id = currentTarget.data('id');
+        var cancel = function(index) {
+            layer.close(index);
+        };
+        var yes = function() {
+            $.ajax({
+                type: 'post',
+                url: '/users/ajax-disable-user',
+                data: {'_csrf': GLOBAL.csrf, 'id': user_id},
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        layer.alert(data.msg, function (index) {
+                            layer.close(index);
+                            listForm.page = '1';
+                            listForm.loadList();
+                        })
+                    } else {
+                        layer.alert(data.msg);
+                    }
+                    window.location.reload();
+                }
+
+            })
+        };
+        layer.confirm('确定停用该用户?', yes, cancel);
+    });
+
 });
 

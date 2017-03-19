@@ -373,7 +373,7 @@ class OrderInfoModel
 
         } elseif (array_key_exists('sn', $query) and !empty($query['sn'])) {
             //订单号
-            $sql .= "AND instr(oi.sn, '" . $query['sn'] . "'))";
+            $sql .= " AND instr(oi.sn, '" . $query['sn'] . "')";
         }  else {
             //下单时间
             if ($query['created_at_begin'] > 0) {
@@ -389,6 +389,12 @@ class OrderInfoModel
                 $sql .= ' AND oi.order_status = :order_status';
                 $data[':order_status'] = $query['order_status'];
             }
+            //付款状态
+            if (isset($query['pay_status']) and $query['pay_status']>=0) {
+                $sql .= ' AND oi.pay_status = :pay_status';
+                $data[':pay_status'] = $query['pay_status'];
+            }
+
             //手机号码
             if (array_key_exists('mobile', $query) and !empty($query['mobile'])) {
                 $sql .= ' AND instr(oi.mobile, ":mobile")';
@@ -405,9 +411,9 @@ class OrderInfoModel
                 $data[':tourist_name'] = $query['tourist_name'];
             }
             //经销商名称
-            if (array_key_exists('user_id', $query) and $query['user_id']>0) {
-                $sql .= ' AND oi.user_id=:user_id';
-                $data[':user_id'] = $query['user_id'];
+            if (array_key_exists('distributor_id', $query) and $query['distributor_id']>0) {
+                $sql .= ' AND oi.distributor_id=:distributor_id';
+                $data[':distributor_id'] = $query['distributor_id'];
             }
             //客审人
             if (array_key_exists('audit_user_id', $query) and $query['audit_user_id'] > 0) {
@@ -485,7 +491,8 @@ class OrderInfoModel
         $command = $connection->createCommand($sql);
         try {
             $cur_time = time();
-            $command->bindParam(':updated_at', $cur_time, PDO::PARAM_INT);
+            $updated_at = date('Y-m-d H:i:s', $cur_time);
+            $command->bindParam(':updated_at', $updated_at, PDO::PARAM_STR);
             $command->bindParam(':order_status', $order_status, PDO::PARAM_INT);
             if (!empty($audit_user_id) && !empty($audit_user_name)) {
                 $command->bindParam(':audit_user_id', $audit_user_id, PDO::PARAM_INT);
@@ -536,147 +543,6 @@ class OrderInfoModel
             throw $e;
         }
     }
-
-//    public function updateOrderAndPayStatus($order_ids, $order_status, $pay_status)
-//    {
-//
-//        if (empty($order_ids) || empty($order_status) || empty($pay_status)) {
-//            return 0;
-//        }
-//
-//        $all_order_status = ConstantConfig::allOrderStatus();
-//        $all_pay_status = ConstantConfig::allPayStatus();
-//        if (!in_array($order_status, $all_order_status) || !in_array($pay_status, $all_pay_status)) {
-//            return 0;
-//        }
-//        $in_order_ids = implode(',', $order_ids);
-//        $sql = " UPDATE order_info SET updated_at=:updated_at,order_status=:order_status, pay_status=:pay_status
-//                 WHERE id in (" . $in_order_ids . ")";
-//        $connection = Yii::$app->db;
-//        $command = $connection->createCommand($sql);
-//        $cur_time = time();
-//        $command->bindParam(':updated_at', $cur_time, PDO::PARAM_INT);
-//        $command->bindParam(':order_status', $order_status, PDO::PARAM_INT);
-//        $command->bindParam(':pay_status', $pay_status, PDO::PARAM_INT);
-//        $result = $command->execute();
-//        return $result;
-//    }
-
-
-//    /**
-//     * 完成退款操作
-//     * @return bool
-//     */
-//    public function completeRefund()
-//    {
-//        $sql = "UPDATE order_info SET pay_status=:pay_status,order_status=:order_status,updated_at=:updated_at WHERE id=:id";
-//        $connection = Yii::$app->db;
-//        try {
-//            $command = $connection->createCommand($sql);
-//            $command->bindParam(':pay_status', $this->_pay_status, PDO::PARAM_INT);
-//            $command->bindParam(':order_status', $this->_order_status, PDO::PARAM_INT);
-//            $command->bindParam(':updated_at', $this->_updated_at, PDO::PARAM_INT);
-//            $command->bindParam(':id', $this->_id, PDO::PARAM_INT);
-//            $command->execute();
-//            return true;
-//        } catch (Exception $e) {
-//            return false;
-//        }
-//
-//    }
-//
-//    /**
-//     * 删除订单
-//     * @return bool
-//     */
-//    public function delete()
-//    {
-//        $sql = "UPDATE order_info SET status=:status,updated_at=:updated_at WHERE id=:id";
-//        $connection = Yii::$app->db;
-//        try {
-//            $command = $connection->createCommand($sql);
-//            $command->bindParam(':status', $this->_status, PDO::PARAM_INT);
-//            $command->bindParam(':updated_at', $this->_updated_at, PDO::PARAM_INT);
-//            $command->bindParam(':id', $this->_id, PDO::PARAM_INT);
-//            $command->execute();
-//            return true;
-//        } catch (Exception $e) {
-//            return false;
-//        }
-//    }
-//
-//    public function getOrderInfoByOrderSN($order_sn_list)
-//    {
-//        if (empty($order_sn_list)) {
-//            return null;
-//        }
-//
-//        $in_order_sn_str = "'" . join("','", $order_sn_list) . "'";
-//
-//        $sql = 'SELECT ' . $this->_column_str . ' FROM order_info WHERE status=0 AND sn in (' . $in_order_sn_str . ')  order by created_at ASC ';
-//        $connection = Yii::$app->db;
-//        $command = $connection->createCommand($sql);
-////        $command->bindParam(':store_id', $store_id, PDO::PARAM_INT);
-//        $result = $command->queryAll();
-//        return $result;
-//    }
-//
-//    /**
-//     * 获取支付方式未在线支付的待付款订单
-//     * @param $created_limit_time
-//     * @return array
-//     */
-//    public function getOnlineUnpaidOrder($created_limit_time)
-//    {
-//        if (empty($created_limit_time)) {
-//            return [];
-//        }
-//        $sql = "SELECT * FROM order_info WHERE pay_type =:pay_type AND pay_status =:pay_status AND
-//                order_status=:order_status AND status=0 AND created_at <" . $created_limit_time;
-//        $connection = Yii::$app->db;
-//        $command = $connection->createCommand($sql);
-//        $command->bindParam(':pay_type', $this->_pay_type, PDO::PARAM_INT);
-//        $command->bindParam(':pay_status', $this->_pay_status, PDO::PARAM_INT);
-//        $command->bindParam(':order_status', $this->_order_status, PDO::PARAM_INT);
-//        return $result = $command->queryAll();
-//    }
-//
-
-//    /**
-//     * 根据订单sn获取订单信息
-//     * @return array|bool
-//     */
-//    public function getOrderInfoBySn()
-//    {
-//        $sql = 'SELECT ' . $this->_column_str . ' FROM order_info WHERE status=0 AND sn=:sn ';
-//        $connection = Yii::$app->db;
-//        $command = $connection->createCommand($sql);
-//        $command->bindParam(':sn', $this->getSn(), PDO::PARAM_STR);
-//        $result = $command->queryOne();
-//        return $result;
-//    }
-//    /**
-//     * 根据订单id修改订单状态及是否拆分信息
-//     * @return int
-//     * @throws Exception
-//     * @throws \Exception
-//     */
-//    public function updateOrderStatusAndIsSeparateById()
-//    {
-//        $sql = " UPDATE order_info SET order_status=:order_status, is_separate=:is_separate, updated_at=:updated_at WHERE id=:id ";
-//        $connection = Yii::$app->db;
-//        try {
-//            $command = $connection->createCommand($sql);
-//            $command->bindParam(':order_status', $this->_order_status, PDO::PARAM_INT);
-//            $command->bindParam(':is_separate', $this->_is_separate, PDO::PARAM_INT);
-//            $command->bindParam(':updated_at', time(), PDO::PARAM_INT);
-//            $command->bindParam(':id', $this->_id, PDO::PARAM_INT);
-//            $res = $command->execute();
-//            return $res;
-//        } catch (Exception $e) {
-//            throw $e;
-//        }
-//    }
     public function updateOrderPayStatus()
     {
         $sql = "UPDATE order_info SET updated_at=:updated_at , pay_status=:pay_status, order_status=:order_status WHERE id=:id";
@@ -685,8 +551,8 @@ class OrderInfoModel
         try {
             $command = $connection->createCommand($sql);
 
-
-            $command->bindValue(":updated_at", time());
+            $updated_at = date('Y-m-d H:i:s', time());
+            $command->bindValue(":updated_at", $updated_at);
             $command->bindValue(":pay_status", $this->getPayStatus());
             $command->bindValue(":order_status", $this->getOrderStatus());
             $command->bindValue(":id", $this->getId());
@@ -720,7 +586,8 @@ class OrderInfoModel
 
             $command = $connection->createCommand($sql);
             $cur_time = time();
-            $command->bindParam(':updated_at', $cur_time, PDO::PARAM_INT);
+            $update_at = date('Y-m-d H:i:s', $cur_time);
+            $command->bindParam(':updated_at', $update_at, PDO::PARAM_INT);
             $command->bindParam(':pay_status', $pay_status, PDO::PARAM_INT);
             $command->execute();
             return true;

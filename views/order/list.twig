@@ -50,10 +50,10 @@
                     {% endfor %}
                 </select>
                 <em class="ftd">经销商</em>
-                <select id="distributor_id" name="distributor_id"  class="pt" {% if user_info.name != admin %} disabled {% endif %}>
+                <select id="distributor_id" name="distributor_id"  class="pt" {% if user_info.name != 'admin' %} disabled {% endif %}>
                     <option value="-1">全部</option>
                     {% for user_id, user_name in distributor_users %}
-                        <option value="{{ user_id }}" {% if user_info.id == user_id %} selected {% endif %}>{{ user_name }}</option>
+                        <option value="{{ user_id }}" {% if user_info.name!='admin' and user_info.id == user_id %} selected {% endif %}>{{ user_name }}</option>
                     {% endfor %}
                 </select>
             </div>

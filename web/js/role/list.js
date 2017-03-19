@@ -267,8 +267,7 @@ function enable_role(role_id, state){
     }
     var url = '/role/ajax/enable';
     var cancel = function() {
-
-    }
+    };
     var yes = function(){
          $.ajax({
             url: url,
@@ -313,7 +312,10 @@ function enable_role(role_id, state){
  * @returns {boolean}
  */
 function delete_role(role_id){
-    layer.confirm("确定删除该角色及其子角色吗？", function(){
+    var cancel = function (index) {
+        layer.close(index)
+    };
+    var yes = function() {
         $.ajax({
             url: '/role/ajax/delete',
             data: {id: role_id, '_csrf': GLOBAL.csrf},
@@ -322,14 +324,18 @@ function delete_role(role_id){
             async: false,
             success: function (data) {
                 if (data.success) {
-                    listForm.page = '1';
-                    listForm.loadList();
+                    layer.alert(data.msg, function(index){
+                        layer.close(index);
+                        listForm.page = '1';
+                        listForm.loadList();
+                    });
                 } else {
-                    layer.alert('', data.msg);
+                    layer.alert(data.msg);
                     return false;
                 }
             }
         });
-    });
+    }
+    layer.confirm("确定删除该角色及其子角色吗？", yes, cancel);
 }
 

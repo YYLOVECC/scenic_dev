@@ -109,10 +109,8 @@
                     async: false,
                     success: function (res) {
                         if (res.success) {
-                            layer.alert(res.msg, function(index){
-                                layer.close(index);
-                                window.location.reload();
-                            });
+                            layer.alert(res.msg);
+                            window.location.reload();
                         } else {
                            layer.alert(res.msg);
                         }

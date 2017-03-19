@@ -89,7 +89,7 @@ var valid_form = function () {
             }
         });
         if (checked_parent.length!=1){
-            xwin.tips('提示', '请选择上级模块');
+            layer.alert('请选择上级模块');
             return false;
         }
         $('#parent_id').val(checked_parent[0]);

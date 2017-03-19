@@ -77,9 +77,7 @@
                 if(data.success){
                     captcha_tips.text('登录成功');
                     captcha_tips.show();
-                    setInterval(function () {
-                        window.location.href='/';
-                    },500);
+                    window.location.href='/';
                 }else{
                     captcha_tips.text(data.msg);
                     captcha_tips.show();

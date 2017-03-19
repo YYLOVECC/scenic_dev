@@ -4,8 +4,6 @@
  */
 namespace app\services\role;
 
-use app\models\RoleFieldPrivilegesModel;
-use app\util\BitUtil;
 use Exception;
 
 use Yii;
@@ -13,7 +11,6 @@ use Yii;
 use app\util\ConstantConfig;
 use app\models\AdminUsersModel;
 use app\models\ComplexModel;
-use app\models\RoleDataPrivilegesModel;
 use app\models\RoleModuleActionsModel;
 use app\models\RoleModulesModel;
 use app\models\RolesModel;
@@ -39,8 +36,31 @@ class CRoleService
         //获取角色列表
         $count = $roles_model->countSearchRoles($params);
         $roles = $roles_model->searchRoles($params, $start, $page_size, $ordinal_str, $ordinal_type);
-        foreach ($roles as $key=>$role) {
-            $roles[$key]['created_date'] = (int)$role['created_at'] ? date('Y/m/d H:i:s', (int)$role['created_at']) : '';
+        //补充上级角色信息
+        if (!empty($roles)) {
+            $parent_ids = [];
+            foreach ($roles as $key => $value) {
+                if (!empty($value['parent_id'])) {
+                    array_push($parent_ids, $value['parent_id']);
+                }
+            }
+            $parent_role_array = [];
+            if ($parent_ids) {
+                $parent_roles = $roles_model->getByIds($parent_ids);
+                if ($parent_roles) {
+                    foreach ($parent_roles as $key => $value) {
+                        $parent_role_array[$value['id']] = $value['name'];
+                    }
+                }
+            }
+            foreach ($roles as $key => &$value) {
+                $value['parent_name'] = '';
+                $value['created_date'] = (int)$value['created_at'] ? date('Y/m/d H:i:s', (int)$value['created_at']) : '';
+
+                if ($value['parent_id'] and array_key_exists($value['parent_id'], $parent_role_array)) {
+                    $value['parent_name'] = $parent_role_array[$value['parent_id']];
+                }
+            }
         }
         return ['success'=>true, 'count'=>$count, 'data'=>$roles];
     }
@@ -316,6 +336,19 @@ class CRoleService
             $role_model->setUpdatedAt($operate_time);
             if(!$role_model->updateStateByIds($disable_ids)) {
                 throw new Exception;
+            }
+            //清除关联用户的权限信息
+            $user_role_model = new UserRolesModel();
+            $role_users = $user_role_model->getByRoleIds($disable_ids);
+            $user_ids = [];
+            foreach ($role_users as $value) {
+                array_push($user_ids, $value['user_id']);
+            }
+            $user_ids = array_unique($user_ids);
+            foreach ($user_ids as $u_id) {
+                RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_' . $u_id);
+                RedisUtil::hdel(Yii::$app->params['privilege_name'], 'user_left_menu_' . $u_id);
+                RedisUtil::hdel(Yii::$app->params['privilege_name'], 'data_privilege_' . $u_id);
             }
             //停用角色用户关系
             $user_role_model = new UserRolesModel();
@@ -629,14 +662,31 @@ class CRoleService
             $current_time = Yii::$app->params['current_time'];
             //模块权限处理
             $module_result = $this->_updateRoleModules($role_id, $module_ids, $current_time);
-
             if(!$module_result['success']){
                 throw new Exception;
             }
+            $has_module_change = $module_result['has_change'];
             //模块角色处理
             $module_action_result = $this->_updateRoleModuleActions($role_id, $module_action_ids, $current_time);
             if(!$module_action_result['success']){
                 throw new Exception;
+            }
+            $has_module_action_change = $module_action_result['has_change'];
+            //功能权限有变动，清空角色关联用户的功能权限缓存
+            $has_change = $has_module_change ? $has_module_change : $has_module_action_change;
+            if ($has_change) {
+                $user_role_model = new UserRolesModel();
+                $user_role_model->setRoleId($role_id);
+                $role_users = $user_role_model->getByRoleId();
+                $user_ids = [];
+                foreach ($role_users as $value) {
+                    array_push($user_ids, $value['user_id']);
+                }
+                $user_ids = array_unique($user_ids);
+                foreach ($user_ids as $u_id) {
+                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_' . $u_id);
+                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'user_left_menu_' . $u_id);
+                }
             }
             $transaction->commit();
             $result = ['success'=>true, 'msg'=>'功能权限更新成功'];

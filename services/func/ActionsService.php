@@ -12,7 +12,7 @@ use app\forms\ActionsForm;
 use app\util\ConstantConfig;
 use app\models\ModuleActionsModel;
 use app\models\RoleModuleActionsModel;
-//use app\util\RedisUtil;
+use app\util\RedisUtil;
 
 class ActionsService
 {
@@ -70,7 +70,7 @@ class ActionsService
         }
 
         //清除行为缓存
-//        RedisUtil::del('valid_actions');
+        RedisUtil::del('valid_actions');
         $connection->close();
         return true;
     }
@@ -90,7 +90,8 @@ class ActionsService
         $transaction = $connection->beginTransaction();
         try {
             $actions_model->create();
-
+            //清除行为缓存
+            RedisUtil::del('valid_actions');
             $transaction->commit();
 
         } catch (Exception $e) {
@@ -156,9 +157,9 @@ class ActionsService
                         array_push($user_ids, $value['user_id']);
                     }
                     $user_ids = array_unique($user_ids);
-//                    foreach($user_ids as $u_id){
-//                        RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_'.$u_id);
-//                    }
+                    foreach($user_ids as $u_id){
+                        RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_'.$u_id);
+                    }
 
                 }
             }
@@ -166,7 +167,7 @@ class ActionsService
             $transaction->commit();
 
             //清除有效行为权限
-//            RedisUtil::del('valid_actions');
+            RedisUtil::del('valid_actions');
 
         } catch (Exception $e) {
             $transaction->rollBack();

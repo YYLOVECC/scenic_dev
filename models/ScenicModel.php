@@ -16,15 +16,19 @@ class ScenicModel
     private $_user_id;
     private $_name;
     private $_image;
-    private $_category;
+//    private $_category;
     private $_info;
     private $_remark;
     private $_place_id;
     private $_country_id;
     private $_hot;
     private $_status;
+    private $_state;
     private $_created_at;
     private $_updated_at;
+    private $_table = 'scenic';
+    private $_column_str = 'id, user_id, name, image, info, remark, place_id, country_id, 
+                           hot, status, state, created_at, updated_at';
 
     /**
      * @return mixed
@@ -205,6 +209,22 @@ class ScenicModel
     /**
      * @return mixed
      */
+    public function getState()
+    {
+        return $this->_state;
+    }
+
+    /**
+     * @param mixed $state
+     */
+    public function setState($state)
+    {
+        $this->_state = $state;
+    }
+
+    /**
+     * @return mixed
+     */
     public function getCreatedAt()
     {
         return $this->_created_at;
@@ -246,7 +266,7 @@ class ScenicModel
         $sql = "SELECT count(DISTINCT(s.id)) as num FROM scenic s";
         //占位符数组
         $data = [];
-        $sql .= " WHERE s.status = 0";
+        $sql .= " WHERE s.state = 0";
 
         $c_res = $this->_innerSearchQuery($query);
         $sql .= $c_res['sql'];
@@ -290,7 +310,7 @@ class ScenicModel
 
         $connection = Yii::$app->db;
         $sql = "SELECT s.* FROM scenic s ";
-        $sql .= " WHERE s.status=0 ";
+        $sql .= " WHERE s.state=0 ";
         $c_res = $this->_innerSearchQuery($query);
         $sql .= $c_res['sql'];
         $data = array_merge($data, $c_res['data']);
@@ -298,9 +318,7 @@ class ScenicModel
         $sql .= ' LIMIT ' . $limit . ',' . $limit_size;
         $command = $connection->createCommand($sql);
         $command->bindValues($data);
-        $result = $command->queryAll();
-
-        return $result;
+        return $command->queryAll();
     }
 
     private function _innerSearchQuery($query){

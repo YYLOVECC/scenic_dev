@@ -23,7 +23,7 @@ class TicketModel
     private $_status;
     private $_created_at;
     private $_updated_at;
-    private $_column_str = 'id, scenic_id, price, numbers, valid_time, lead_time, last_time, remark, status, updated_at, update_at';
+    private $_column_str = 'id, scenic_id, price, number, valid_time, lead_time, last_time, remark, status, created_at, updated_at';
     /**
      * @return mixed
      */
@@ -271,7 +271,7 @@ class TicketModel
         $data = [];
 
         $connection = Yii::$app->db;
-        $sql = "SELECT" .$this->_column_str ." FROM ticket ";
+        $sql = "SELECT " .$this->_column_str ." FROM ticket ";
         $sql .= " WHERE status=0 ";
         $c_res = $this->_innerSearchQuery($query);
         $sql .= $c_res['sql'];

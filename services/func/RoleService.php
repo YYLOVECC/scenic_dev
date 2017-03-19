@@ -8,6 +8,7 @@
 namespace app\services\func;
 
 use app\models\RoleFieldPrivilegesModel;
+use app\models\RolesModel;
 use Yii;
 
 use app\util\RedisUtil;
@@ -30,6 +31,12 @@ class RoleService
     {
         if(empty($user_id)){
             return [];
+        }
+        //缓存获取功能权限
+        $user_feature_privileges = json_decode(RedisUtil::hmget(Yii::$app->params['privilege_name'],
+            'feature_privilege_'.$user_id), true);
+        if(!empty($user_feature_privileges)){
+            return $user_feature_privileges;
         }
         //查询用户角色
         $user_service = new UsersService();
@@ -83,91 +90,12 @@ class RoleService
                 }
             }
         }
+        //功能权限缓存
+        $expire_time = 2*24*60*60;//缓存2天
+        RedisUtil::hmset(Yii::$app->params['privilege_name'], 'feature_privilege_'.$user_id, json_encode($role_modules),
+            null, $expire_time);
         return $role_modules;
     }
-
-    /**
-     * 根据用户id获取用户角色的字段权限信息
-     * @param $user_id
-     * @return array
-     */
-//    public function getRoleFieldPrivilegesByUserId($user_id)
-//    {
-//        if(empty($user_id)){
-//            return [];
-//        }
-//        //查询用户角色
-//        $user_service = new UsersService();
-//        $role_ids = $user_service->getRoleIdsById($user_id);
-//        if(empty($role_ids)){
-//            return [];
-//        }
-//
-//        //获取角色的字段权限
-//        $role_field_privilege_model = new RoleFieldPrivilegesModel();
-//        $role_field_privileges = $role_field_privilege_model->getByRoleIds($role_ids);
-//        //补充字段英文名
-//        if(!empty($role_field_privileges)){
-//            $field_ids = [];
-//            $user_field_privileges = [];
-//            foreach($role_field_privileges as $value){
-//                $field_id = $value['field_privilege_id'];
-//                array_push($field_ids, $field_id);
-//                if(!array_key_exists($field_id, $user_field_privileges)){
-//                    $user_field_privileges[$field_id] = $value;
-//                }else{
-//                    if((int)$user_field_privileges[$field_id]['operation_type']<(int)$value['operation_type']){
-//                        $user_field_privileges[$field_id] = $value;
-//                    }
-//                }
-//            }
-//        }
-//
-//        return $user_field_privileges;
-//    }
-
-
-    /**
-     * 根据用户id获取用户角色的数据权限信息
-     * @param $user_id
-     * @return array
-     */
-//    public function getRoleDataPopedomsByUserId($user_id)
-//    {
-//        if(empty($user_id)){
-//            return [];
-//        }
-//        //查询用户角色
-//        $user_service = new UsersService();
-//        $role_ids = $user_service->getRoleIdsById($user_id);
-//        if(empty($role_ids)){
-//            return [];
-//        }
-//
-//        //获取角色的数据权限
-//        $role_data_popedom_model = new RoleDataPrivilegesModel();
-//        $role_data_popedoms = $role_data_popedom_model->getByRoleIds($role_ids);
-//        $result = [];
-//        foreach($role_data_popedoms as $value){
-//            if(!array_key_exists($value['data_privilege_type'], $result)){
-//                $result[$value['data_privilege_type']] = [];
-//            }
-//            array_push($result[$value['data_privilege_type']], $value['data_id']);
-//        }
-//        foreach(array_keys($result) as $value){
-//            if(intval($value) == ConstantConfig::DATA_STORE){
-//                //店铺权限数据获取
-//                $store_ids = $result[$value];
-//                $store_service = new CStoreService();
-//                $stores = $store_service->getEnableStores();
-//                $result[$value] = [];
-//                foreach($store_ids as $s_id){
-//                    $result[$value][$s_id] = $stores[$s_id];
-//                }
-//            }
-//        }
-//    }
-
     /**
      * 根据模块路径获取模块信息
      * @param $url

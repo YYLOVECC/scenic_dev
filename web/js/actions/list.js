@@ -66,42 +66,52 @@ var enable = function(id,is_enable){
     var url = '/actions/ajax/enable';
     var data = {'id': id,'is_enable':target_enable, '_csrf': globals.csrf};
 
-    xwin.confirm('是否'+status+'该行为?', function(){
+    var cancel = function(index) {
+        layer.close(index);
+    }
+    var yes = function() {
         $.ajax({
             url: url,
             data: data,
             type: 'post',
             dataType: 'json',
             async: false,
-            success: function(result) {
-                if (result.success){
-                    var target_obj = $('#task_'+id);
-                    var target_status_obj = $('#task_status_'+id);
+            success: function (result) {
+                if (result.success) {
+                    var target_obj = $('#task_' + id);
+                    var target_status_obj = $('#task_status_' + id);
                     if (target_enable) {
                         target_status_obj.attr('class', 'blue');
                         target_status_obj.text('正常');
-                        if($.inArray('disable', globals.actions)!=-1){
-                            target_obj.attr('onclick', 'enable('+id+', '+target_enable+')');
+                        if ($.inArray('disable', globals.actions) != -1) {
+                            target_obj.attr('onclick', 'enable(' + id + ', ' + target_enable + ')');
                             target_obj.text('停用');
-                        }else{
+                        } else {
                             target_obj.remove();
                         }
-                    }else{
+                    } else {
                         target_status_obj.attr('class', 'gray');
                         target_status_obj.text('停用');
                         if ($.inArray('enable', globals.actions) != -1) {
                             target_obj.attr('onclick', 'enable(' + id + ', ' + target_enable + ')');
                             target_obj.text('启用');
-                        }else{
+                        } else {
                             target_obj.remove();
                         }
                     }
-                }else{
-                    xwin.tips('提示', result.msg);
+                    layer.alert(result.msg, function(index){
+                        layer.close(index);
+                        listForm.page=1;
+                        listForm.loadList();
+                    })
+                } else {
+                    layer.alert(result.msg);
                 }
             }
-        });
-    });
+        })
+    };
+    layer.confirm('是否'+status+'该行为?', yes, cancel);
+
 };
 
 $(function () {

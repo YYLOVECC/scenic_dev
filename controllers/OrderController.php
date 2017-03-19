@@ -64,8 +64,8 @@ class OrderController extends SuperController
         $user_service = new UsersService();
         $all_user_info = $user_service->getAllUserInfo();
         $distributor_users = [];
-        foreach($all_user_info as $user_info) {
-            $distributor_users[$user_info['id']] = $user_info['name'];
+        foreach($all_user_info as $user_item) {
+            $distributor_users[$user_item['id']] = $user_item['name'];
         }
         //获取审核人
         $user_service = new UsersService();
@@ -134,6 +134,7 @@ class OrderController extends SuperController
         $tourist_name = $request->post('tourist_name','');
         $audit_user_id = $request->post('audit_user_id',0);
         $order_status = $request->post('order_status', 0); //订单状态
+        $pay_status = $request->post('pay_status', -1);//支付状态
         $distributor_id = $request->post('distributor_id',0);
         $ordinal_str = $request->post('ordinal_str', '');
         $ordinal_type = $request->post('ordinal_type', '');
@@ -147,9 +148,11 @@ class OrderController extends SuperController
             'scenic_name' => $scenic_name,
             'mobile' => $mobile,
             'tourist_name' => $tourist_name,
-            'user_id' => $distributor_id,
+//            'user_id' => $distributor_id,
             'audit_user_id' => $audit_user_id,
             'order_status' => $order_status,
+            'pay_status' => $pay_status,
+            'distributor_id' => $distributor_id,
             'ticket_price_begin' => $ticket_price_begin,
             'ticket_price_end' => $ticket_price_end,
         ];

@@ -61,6 +61,7 @@
         if (audit_user) {
 		    post_data['audit_user_id'] = audit_user;
         }
+        //经销商
         if (distributor_id>0) {
 		    post_data['distributor_id'] = distributor_id;
         }
@@ -120,7 +121,9 @@
             uiAuditBtn = $('#uiAuditBtn'),
             uiReviewBtn = $('#uiReviewBtn'),
             uiExportDataBtn = $('#uiExportDataBtn'),
+            searchOrderListBtn = $('#search_order_list_button'),
             uiRefundAudit = $('#uiRefundAudit');
+
 
 
         zs_searchBtn.on('click', function () {
@@ -161,6 +164,10 @@
         // 详情点击事件
         table.on('click', '.detail-btn', function (e) {
             goToDetail(e);
+        });
+        searchOrderListBtn.on('click', function() {
+            listForm.page = 1;
+            listForm.loadList();
         });
 
         //客审，待确认订单
@@ -256,7 +263,7 @@
                 checkedBoxes = $('input[name="ckbox"]:checked');
 
             checkedBoxes.each(function (index, item) {
-                order_ids.push($(item).data('order-id'));
+                order_ids.push($(item).data('id'));
             });
             if (order_ids.length < 1) {
                 layer.alert('请选择需要导出的数据');

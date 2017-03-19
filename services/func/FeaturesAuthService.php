@@ -4,6 +4,7 @@ namespace app\services\func;
 use app\models\RoleModuleActionsModel;
 use app\models\RoleModulesModel;
 use app\models\UserRolesModel;
+use app\util\RedisUtil;
 use Exception;
 
 use Yii;
@@ -47,6 +48,8 @@ class FeaturesAuthService
             $connection->close();
             return false;
         }
+        //清除模块缓存
+        RedisUtil::del('valid_modules');
         $connection->close();
         return true;
     }
@@ -72,31 +75,33 @@ class FeaturesAuthService
             //修改模块信息
             $modules_model->updateByPk();
             $transaction->commit();
+            //清除有效模块缓存
+            RedisUtil::del('valid_modules');
 
-//            //模块有改动，清除模块关联角色的权限信息
-//            //获取模块管理角色
-//            $role_module_model = new RoleModulesModel();
-//            $role_module_model->setModuleId($form->id);
-//            $role_modules = $role_module_model->getByModuleId();
-//
-//            //清除角色关联用户的权限缓存
-//            if(!empty($role_modules)){
-//                $role_ids = [];
-//                foreach($role_modules as $v){
-//                    array_push($role_ids, $v['role_id']);
-//                }
-//                $user_role_model = new UserRolesModel();
-//                $role_users = $user_role_model->getByRoleIds($role_ids);
-//                $user_ids = [];
-//                foreach($role_users as $value){
-//                    array_push($user_ids, $value['user_id']);
-//                }
-//                $user_ids = array_unique($user_ids);
-////                foreach($user_ids as $u_id){
-////                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_'.$u_id);
-////                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'user_left_menu_'.$u_id);
-////                }
-//            }
+            //模块有改动，清除模块关联角色的权限信息
+            //获取模块管理角色
+            $role_module_model = new RoleModulesModel();
+            $role_module_model->setModuleId($form->id);
+            $role_modules = $role_module_model->getByModuleId();
+
+            //清除角色关联用户的权限缓存
+            if(!empty($role_modules)){
+                $role_ids = [];
+                foreach($role_modules as $v){
+                    array_push($role_ids, $v['role_id']);
+                }
+                $user_role_model = new UserRolesModel();
+                $role_users = $user_role_model->getByRoleIds($role_ids);
+                $user_ids = [];
+                foreach($role_users as $value){
+                    array_push($user_ids, $value['user_id']);
+                }
+                $user_ids = array_unique($user_ids);
+                foreach($user_ids as $u_id){
+                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_'.$u_id);
+                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'user_left_menu_'.$u_id);
+                }
+            }
 
             //不显示模块时解绑模块关联角色
             if($form->is_display == ConstantConfig::ENABLE_FALSE){
@@ -114,6 +119,8 @@ class FeaturesAuthService
             $connection->close();
             return false;
         }
+        //清除模块缓存
+        RedisUtil::del('valid_modules');
         $connection->close();
         return true;
     }
@@ -248,6 +255,25 @@ class FeaturesAuthService
                 $role_module_action_model = new RoleModuleActionsModel();
                 $role_module_action_model->setStatus(ConstantConfig::STATUS_DELETE);
                 $role_module_action_model->updateStatusByModuleActionIds($disable_module_action_ids);
+                //行为权限有变动，清空角色关联用户的功能权限缓存
+                $role_module_model = new RoleModulesModel();
+                $role_module_model->setModuleId($module_id);
+                $roles = $role_module_model->getByModuleId();
+                $role_ids = [];
+                foreach($roles as $role){
+                    array_push($role_ids, $role['role_id']);
+                }
+                $user_role_model = new UserRolesModel();
+                $role_users = $user_role_model->getByRoleIds($role_ids);
+                $user_ids = [];
+                foreach($role_users as $value){
+                    array_push($user_ids, $value['user_id']);
+                }
+                $user_ids = array_unique($user_ids);
+                foreach($user_ids as $u_id){
+                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'feature_privilege_'.$u_id);
+                    RedisUtil::hdel(Yii::$app->params['privilege_name'], 'user_left_menu_'.$u_id);
+                }
             }
 
             //新增行为权限
@@ -342,18 +368,18 @@ class FeaturesAuthService
     public function getEnableModules()
     {
         //缓存读取
-//        $modules = RedisUtil::get('valid_modules');
-//        if ($modules) {
-//            return json_decode($modules, true);
-//        }
+        $modules = RedisUtil::get('valid_modules');
+        if ($modules) {
+            return json_decode($modules, true);
+        }
         //没有缓存，请求数据库
         try {
             $module_model = new ModulesModel();
             $modules = $module_model->getValidModules();
-//            if(!empty($modules)){
-//                //缓存模块信息
-//                RedisUtil::set('valid_modules', json_encode($modules), null, 7*24*60*60);
-//            }
+            if(!empty($modules)){
+                //缓存模块信息
+                RedisUtil::set('valid_modules', json_encode($modules), null, 7*24*60*60);
+            }
         } catch (Exception $e) {
             $modules = [];
         }
@@ -379,18 +405,18 @@ class FeaturesAuthService
     public function getEnableActions()
     {
         //缓存读取
-//        $actions = RedisUtil::get('valid_actions');
-//        if ($actions) {
-//            return json_decode($actions, true);
-//        }
+        $actions = RedisUtil::get('valid_actions');
+        if ($actions) {
+            return json_decode($actions, true);
+        }
         //没有缓存，请求数据库
         try {
             $action_model = new ActionsModel();
             $actions = $action_model->getValidActions();
-//            if(!empty($actions)){
-//                //缓存行为信息
-//                RedisUtil::set('valid_actions', json_encode($actions), null, 7*24*60*60);
-//            }
+            if(!empty($actions)){
+                //缓存行为信息
+                RedisUtil::set('valid_actions', json_encode($actions), null, 7*24*60*60);
+            }
 
         } catch (Exception $e) {
             //todo 错误日志

@@ -7,10 +7,9 @@ use yii\base\Exception;
 use yii\helpers\Url;
 
 use app\components\BaseController;
-//use app\components\SiteConfig;
+use app\components\SiteConfig;
 
 use app\util\YiiCookie;
-use app\util\AESUtils;
 use app\util\ConstantConfig;
 use app\components\UserIdentity;
 
@@ -56,6 +55,10 @@ class SiteController extends BaseController
         $user_info = $admin_user_model->findByEmail();
         if (empty($user_info)) {
             return json_encode(['success' => false, 'msg'=>'邮箱错误']);
+        }
+        $is_enable = $user_info['is_enable'];
+        if ($is_enable == ConstantConfig::ENABLE_FALSE) {
+            return json_encode(['success' => false, 'msg'=>'该用户已被停用，无登录权限']);
         }
         $salt = $user_info['salt'];
         $get_password = md5(md5($password).$salt);
@@ -130,21 +133,4 @@ class SiteController extends BaseController
         YiiCookie::delete(ConstantConfig::ADMIN_COOKIE_NAME);
         return json_encode(['success'=> true, 'msg'=>'修改密码成功，请重新登录']);
     }
-
-//    public function actionAjaxUserBehaviour()
-//    {
-//        $request = Yii::$app->request;
-//        $login_id = $request->get('login_id');
-//        $login_email = $request->get('login_email');
-//        $login_name = $request->get('login_name');
-//        $click_host = $request->get('click_host');
-//        $click_text = $request->get('click_text');
-//        $click_time = $request->get('click_time');
-//
-//        $user_behaviour_service = new UserBehaviourService();
-//        $user_behaviour_service->save(['login_id' => $login_id, 'login_email' => $login_email, 'login_name' => $login_name,
-//            'click_host' => $click_host, 'click_text' => $click_text, 'click_time' => $click_time]);
-//        return json_encode(['success' => true]);
-//    }
-
 }

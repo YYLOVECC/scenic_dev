@@ -39,6 +39,14 @@ $config = [
         ],
         'db' => require(__DIR__ . '/db.php'),
 
+        //redis
+        'redis' => [
+            'class' => 'Redis',
+            'hostname' => '172.17.0.1',
+            'port' => 6379,
+            'timeout' => 0,
+        ],
+
         //模板配置
         'view' => [
             'class' => 'yii\web\View',

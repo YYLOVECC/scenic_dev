@@ -147,4 +147,55 @@ class UsersController extends SuperController
             'js/validate.js','js/users/add.js'];
         return $this->render('add.twig', ['user_form'=>$admin_users_form,'valid_roles'=>$valid_roles, 'user_info'=> $user_info ]);
     }
+    /**
+     * 停用用户
+     */
+    public function actionAjaxDisableUser(){
+        //停用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'disable')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $user_id = (int)$request->post('id', 0);
+        if(empty($user_id)){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误: user_id']);
+        }
+        //处理用户停用
+        $role_service = new UsersService();
+        $result = $role_service->disableUser($user_id);
+        return json_encode($result);
+    }
+
+
+    /**
+     * 启用用户
+     */
+    public function actionAjaxEnableUser(){
+        //启用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'enable')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $user_id = (int)$request->post('id', 0);
+        if(!$user_id){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误：user_id']);
+        }
+        //处理角色启用
+        $role_service = new UsersService();
+        $result = $role_service->enableUser($user_id);
+        return json_encode($result);
+    }
+
 }

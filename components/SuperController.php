@@ -5,7 +5,7 @@
 
 namespace app\components;
 
-use app\util\BitUtil;
+use app\util\RedisUtil;
 use Exception;
 use Yii;
 use yii\web\Controller;
@@ -13,11 +13,9 @@ use yii\web\HttpException;
 
 use app\util\ConstantConfig;
 use app\util\YiiCookie;
-use app\util\LogsFactory;
 use app\services\func\UsersService;
 use app\services\func\RoleService;
 use app\services\super\CLogService;
-use app\util\ResourceLogs;
 
 
 class SuperController extends Controller
@@ -40,8 +38,6 @@ class SuperController extends Controller
     {
         //登陆检测
         $this->_isLogin();
-        //获取用户权限
-//        $this->_auth_popedom();
         //获取用户左侧菜单
         $this->_userLeftMenu();
     }
@@ -168,6 +164,16 @@ class SuperController extends Controller
      */
     private function _userLeftMenu()
     {
+        $data = json_decode(
+            RedisUtil::hmget(
+                Yii::$app->params['privilege_name'],
+                'user_left_menu_' . $this->user_info['id']
+            ),
+            true
+        );
+        if (!empty($data)) {
+            $this->user_left_menus = $data;
+        }
         //获取用户角色
         $user_id = $this->user_info['id'];
         //获取用户功能权限
@@ -200,10 +206,20 @@ class SuperController extends Controller
             }
             $d['children'] = array_reverse($d['children']);
         }
+        //用户左侧菜单缓存
+        $expire_time = 2 * 24 * 60 * 60; //缓存2天
+        RedisUtil::hmset(
+            Yii::$app->params['privilege_name'],
+            'user_left_menu_' . $this->user_info['id'],
+            json_encode($data),
+            null,
+            $expire_time
+        );
         $this->user_left_menus = $data;
     }
 
     /**
+     * 日志保存
      * @param $resource_ids
      * @return bool
      * @throws HttpException

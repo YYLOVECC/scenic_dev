@@ -57,7 +57,8 @@
         每页<select id='pageSize' onchange="listForm.change_page_size(this.value)"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="150">150</option></select>条，
         <a href="javascript:listForm.goto_first_page()">第一页</a><a href="javascript:listForm.goto_pre_page()">上一页</a>，到第<input type="text" class="pagei" id="gotoPage" onkeyup="listForm.quick_goto_page(this);">页，<a href="javascript:listForm.goto_next_page()">下一页</a><a href="javascript:listForm.goto_last_page()">最末页</a>
     </div>
-
+{% endblock %}
+{% block js %}
     <script type="text/template" id="item_user_template">
         <% _.each(users, function(item, index) { %>
         <tr>
@@ -66,9 +67,20 @@
             <td><%= item.email %></td>
             <td><%= item.created_date %></td>
             <td><%= item.role_names %></td>
-            <td><em class="blue"><% if(item.is_enable == 1){ %>正常<% }else{ %>停用<% } %></em></td>
+            <td><em class="blue">
+                    <% if(item.is_enable == 1){ %>正常<% }else{ %>停用<% } %>
+                </em></td>
             <td>
-                <a href="/users/edit?id=<%=item.id %>" class="cblue">修改</a>
+                <% if($.inArray('edit', GLOBAL.actions)!=-1 && item.id !=1){ %>
+                    <a href="/users/edit?id=<%=item.id %>" class="cblue">修改</a>
+                <% } %>
+                <% if($.inArray('enable', GLOBAL.actions)!=-1 && item.id !=1 && item.is_enable==0){ %>
+                <a href="javascript:void(0)" class="cblue enable" data-id="<%= item.id %>">启用</a>
+                <% } %>
+                <% if($.inArray('disable', GLOBAL.actions)!=-1 && item.id !=1 && item.is_enable==1){ %>
+                <a href="javascript:void(0)" class="cblue disable" data-id="<%= item.id %>">停用</a>
+                <% } %>
+
             </td>
         </tr>
         <% }); %>
@@ -76,6 +88,4 @@
     <script>
         GLOBAL.actions=$.parseJSON('{{ actions|json_encode|raw }}');
     </script>
-{% endblock %}
-{% block js %}
 {% endblock %}
