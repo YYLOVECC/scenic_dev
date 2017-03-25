@@ -227,6 +227,7 @@ class UserRolesModel
         $command->bindParam(':user_id', $this->_user_id, PDO::PARAM_INT);
         $command->bindParam(':role_id', $this->_role_id, PDO::PARAM_INT);
         $command->bindParam(':created_at', $this->_created_at, PDO::PARAM_INT);
+        $command->bindParam(':updated_at',$this->_updated_at, PDO::PARAM_INT);
         return $command->execute();
     }
 

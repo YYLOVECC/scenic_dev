@@ -498,7 +498,7 @@ class OrderService
         try {
             $pay_time = 3; //三小时未支付取消订单
             $limit_time =  $pay_time * 60 * 60;
-//            $limit_time =   1 * 60;
+//            $limit_time =   10;
 
             //检索出需取消的订单
             $order_info_model->setPayStatus(ConstantConfig::PAY_STATUS_UNPAID);

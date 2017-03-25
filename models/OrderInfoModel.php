@@ -414,7 +414,7 @@ class OrderInfoModel
             }
             //游客名称
             if (array_key_exists('tourist_name', $query) and !empty($query['tourist_name'])) {
-                $sql .= ' AND oi.tourist_name=:tourist_name';
+                $sql .= ' AND instr(oi.tourist_name, :tourist_name)';
                 $data[':tourist_name'] = $query['tourist_name'];
             }
             //经销商名称
@@ -617,7 +617,7 @@ class OrderInfoModel
         if (empty($created_limit_time)) {
             return [];
         }
-        $created_limit_time = date('Y-m-d H:i:s');
+        $created_limit_time = date('Y-m-d H:i:s', $created_limit_time);
         $sql = "SELECT * FROM order_info WHERE  pay_status =:pay_status  AND
                 order_status=:order_status AND status=0 AND order_type!=3 AND created_at < :limit_time";
         $connection = Yii::$app->db;
