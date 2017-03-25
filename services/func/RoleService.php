@@ -33,11 +33,11 @@ class RoleService
             return [];
         }
         //缓存获取功能权限
-        $user_feature_privileges = json_decode(RedisUtil::hmget(Yii::$app->params['privilege_name'],
-            'feature_privilege_'.$user_id), true);
-        if(!empty($user_feature_privileges)){
-            return $user_feature_privileges;
-        }
+//        $user_feature_privileges = json_decode(RedisUtil::hmget(Yii::$app->params['privilege_name'],
+//            'feature_privilege_'.$user_id), true);
+//        if(!empty($user_feature_privileges)){
+//            return $user_feature_privileges;
+//        }
         //查询用户角色
         $user_service = new UsersService();
         $role_ids = $user_service->getRoleIdsById($user_id);

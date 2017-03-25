@@ -8,6 +8,7 @@
 
 namespace app\controllers;
 
+use app\services\func\ScenicShowService;
 use app\services\order\COrderService;
 use app\util\ExcelUtil;
 use Yii;
@@ -62,10 +63,26 @@ class OrderController extends SuperController
         $user_info = UserIdentity::getUserInfo();
         //获取所有用户信息
         $user_service = new UsersService();
-        $all_user_info = $user_service->getAllUserInfo();
+        $all_user_info = $user_service->getAllUser();
         $distributor_users = [];
         foreach($all_user_info as $user_item) {
             $distributor_users[$user_item['id']] = $user_item['name'];
+        }
+        //取当前用户所拥有的景区
+        $scenic_service = new ScenicShowService();
+        $valid_scenic = [];
+        $current_name = $user_info['name'];
+        if ($current_name != 'admin') {
+            $valid_scenic_info = $scenic_service->getValidScenicInfo($user_info);
+            foreach ($valid_scenic_info as $scenic) {
+                $valid_scenic[$scenic['id']] = $scenic['name'];
+            }
+        }
+        //所有景区名称
+        $scenic_arr =[];
+        $all_scenic_arr = $scenic_service->getAllScenicInfo();
+        foreach ($all_scenic_arr as $value) {
+            $scenic_arr[$value['id']] = $value['name'];
         }
         //获取审核人
         $user_service = new UsersService();
@@ -80,7 +97,6 @@ class OrderController extends SuperController
             'libs/jquery-ui.min.js',
             'libs/dragtable/jquery.dragtable.js',
             'js/order/list.js'];
-
         return $this->render('list.twig', [
             'actions' => $actions,
             'module_url' => $this->_module_url,
@@ -90,7 +106,8 @@ class OrderController extends SuperController
             'pay_mode_arr' => $pay_mode_arr,
             'pay_type_arr' => $pay_type_arr,
             'user_info' => $user_info,
-            'distributor_users' => $distributor_users
+            'distributor_users' => $distributor_users,
+            'valid_scenic' => !empty($valid_scenic) ? $valid_scenic:$scenic_arr
         ]);
     }
 
@@ -118,13 +135,13 @@ class OrderController extends SuperController
         $created_at_begin = date('Y-m-d H:i:s', $created_at_begin);
         $created_at_end = date('Y-m-d H:i:s', $created_at_end);
         //应付金额区间转换
-        $ticket_price_str = $request->post('ticket_price', '-1');
-        $ticket_price_begin = 0;
-        $ticket_price_end = 0;
-        if($ticket_price_str != '-1'){
-            $ticket_price_arr = explode('-', $ticket_price_str);
-            $ticket_price_begin = $ticket_price_arr[0];
-            $ticket_price_end = count($ticket_price_arr) > 1 ? $ticket_price_arr[1] : 0;
+        $pay_price_str = $request->post('pay_price', '-1');
+        $pay_price_begin = 0;
+        $pay_price_end = 0;
+        if($pay_price_str != '-1'){
+            $pay_price_arr = explode('-', $pay_price_str);
+            $pay_price_begin = $pay_price_arr[0];
+            $pay_price_end = count($pay_price_arr) > 1 ? $pay_price_arr[1] : 0;
 
         }
         $id = $request->post('id','');
@@ -135,7 +152,7 @@ class OrderController extends SuperController
         $audit_user_id = $request->post('audit_user_id',0);
         $order_status = $request->post('order_status', 0); //订单状态
         $pay_status = $request->post('pay_status', -1);//支付状态
-        $distributor_id = $request->post('distributor_id',0);
+        $distributor_name = $request->post('distributor_name','');
         $ordinal_str = $request->post('ordinal_str', '');
         $ordinal_type = $request->post('ordinal_type', '');
         $limit = $request->post('start', 0);
@@ -152,9 +169,9 @@ class OrderController extends SuperController
             'audit_user_id' => $audit_user_id,
             'order_status' => $order_status,
             'pay_status' => $pay_status,
-            'distributor_id' => $distributor_id,
-            'ticket_price_begin' => $ticket_price_begin,
-            'ticket_price_end' => $ticket_price_end,
+            'distributor_name' => $distributor_name,
+            'pay_price_begin' => $pay_price_begin,
+            'pay_price_end' => $pay_price_end,
         ];
         $order_service = new OrderService();
         $result = $order_service->searchOrderList($query, $ordinal_str, $ordinal_type, $limit, $limit_size);
@@ -198,7 +215,8 @@ class OrderController extends SuperController
             'order_details' => $res_data['order_details'],
             'order_payment_details' => $res_data['payment_details'],
             'module_url' => $this->_module_url,
-            'current_audit_user' => $order_audit_user
+            'current_audit_user' => $order_audit_user,
+            'current_time'=>time()
         ];
 
         return $this->render('info.twig', $data);
@@ -339,13 +357,13 @@ class OrderController extends SuperController
         $created_at_begin = date('Y-m-d H:i:s', $created_at_begin);
         $created_at_end = date('Y-m-d H:i:s', $created_at_end);
         //应付金额区间转换
-        $ticket_price_str = $request->get('ticket_price', '-1');
-        $ticket_price_begin = 0;
-        $ticket_price_end = 0;
-        if($ticket_price_str != '-1'){
-            $ticket_price_arr = explode('-', $ticket_price_str);
-            $ticket_price_begin = $ticket_price_arr[0];
-            $ticket_price_end = count($ticket_price_arr) > 1 ? $ticket_price_arr[1] : 0;
+        $pay_price_str = $request->get('pay_price', '-1');
+        $pay_price_begin = 0;
+        $pay_price_end = 0;
+        if($pay_price_str != '-1'){
+            $pay_price_arr = explode('-', $pay_price_str);
+            $pay_price_begin = $pay_price_arr[0];
+            $pay_price_end = count($pay_price_arr) > 1 ? $pay_price_arr[1] : 0;
 
         }
         $sn = $request->get('sn','');
@@ -368,8 +386,8 @@ class OrderController extends SuperController
             'user_id' => $distributor_id,
             'audit_user_id' => $audit_user_id,
             'order_status' => $order_status,
-            'ticket_price_begin' => $ticket_price_begin,
-            'ticket_price_end' => $ticket_price_end,
+            'pay_price_begin' => $pay_price_begin,
+            'pay_price_end' => $pay_price_end,
         ];
         //订单ids
         $id_str = $request->get('ids');
@@ -410,7 +428,4 @@ class OrderController extends SuperController
         $res = $corder_service->getOrderActionLogs($id);
         return json_encode($res);
     }
-
-
-
 }

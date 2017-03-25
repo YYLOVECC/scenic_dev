@@ -46,6 +46,12 @@ $config = [
             'port' => 6379,
             'timeout' => 0,
         ],
+        'gearman' => [
+            'class' => 'filsh\yii2\gearman\GearmanComponent',
+            'servers' => [
+                ['host' => '172.17.0.1', 'port' => 4730],
+            ]
+        ],
 
         //模板配置
         'view' => [

@@ -81,6 +81,7 @@ var save_actions = function() {
         success: function (result) {
             if (result.success) {
                 close_qx();
+                window.location.reload();
             } else {
                 layer.alert(result.msg);
             }

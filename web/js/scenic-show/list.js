@@ -5,7 +5,7 @@
     var GLOBAL = {
         csrf: $('meta[name=csrf-token]').attr('content'),
         module_url: $('#module_url').val(),
-        hasr: true
+        hasr: true,
     };
     var gotoPage     = $('#gotoPage'),
         record_count = $('#record_count'),
@@ -17,15 +17,8 @@
     var get_search_params = function() {
         var post_data      = {};
         var riqi           = $('#riqi').val(),
-            order_sn       = $('#order_sn').val(),
-            scenic_name    = $('#scenic_name').val(),
-            mobile         = $('#mobile').val(),
-            tourist_name   = $('#tourist_name').val(),
-            order_status   = $('#order_status').val(),
-            pay_status     = $('#pay_status').val(),
-            ticket_price   = $('#ticket_price').val(),
-            audit_user     = $('#audit_user_id').val(),
-            distributor_id = $('#distributor_id').val();
+            scenic_id    = $('#scenic_id').val(),
+            distributor_id = $('#distributor_id option:selected').val();
 
 
         // 判断是否包含日期条件
@@ -33,35 +26,9 @@
             post_data['created_at_str'] = riqi.trim();
         }
 
-        // 判断是否包含订单号条件
-        if (order_sn) {
-            post_data['sn'] = order_sn.trim();
-        }
-        //门票名称
-        if (scenic_name) {
-            post_data['scenic_name'] = scenic_name;
-        }
-        // 判断是否包含手机号码条件
-        if (mobile) {
-            post_data['mobile'] = mobile;
-        }
-        //游客姓名
-        if (tourist_name) {
-            post_data['tourist_name'] = tourist_name;
-        }
-        // 判断是否包含订单状态条件(默认请求代发货的数据)
-        if (order_status) {
-            post_data['order_status'] = parseInt(order_status);
-        }
-        //支付状态
-        if(pay_status >-1) {
-            post_data['pay_status'] = parseInt(pay_status);
-        }
-        if (ticket_price) {
-            post_data['ticket_price'] = ticket_price;
-        }
-        if (audit_user) {
-            post_data['audit_user_id'] = audit_user;
+        //景区名称
+        if (scenic_id>0) {
+            post_data['scenic_id'] = scenic_id;
         }
         if (distributor_id>0) {
             post_data['distributor_id'] = distributor_id;
@@ -120,6 +87,243 @@
         });
         //初始化列表
         listForm.loadList();
+
+        $('#search_scenic_list_button').on('click', function() {
+            listForm.page=1;
+            listForm.loadList();
+            $('#checked_count').html(0);
+        });
+        /**
+         * 获取checkbox的选中值
+         */
+        var getSelectedCheckboxValues = function() {
+            var ids = [];
+            $('input[name="ckbox"]:checked').each(function (index, item) {
+                ids.push($(item).data('id'));
+            });
+            return ids.join(',');
+        }
+        /**
+         * 统计勾选的总数
+         */
+        var countSelectedItems = function() {
+            var checkedItems = getSelectedCheckboxValues(),
+                checkedItemArr = checkedItems.split(',').filter(function (item) {
+                    return item != "";
+                });
+            $('#checked_count').html(checkedItemArr.length);
+        };
+        // `common.js`中条目的点击后会触发该全局绑定事件
+        $('body').on('OrderList:UpdateSelectedItems', function() {
+            countSelectedItems();
+        });
+        //上架
+        $('#scenic_list_layer').on('click', '.uiUp', function(evt){
+            var currentTarget = $(evt.currentTarget),
+                scenic_id = currentTarget.data('id');
+            var cancel = function(index) {
+                layer.close(index);
+            };
+            var yes = function() {
+                $.ajax({
+                    type: 'post',
+                    url: '/scenic-show/ajax-up-scenic',
+                    data:{'_csrf':GLOBAL.csrf, 'id':scenic_id},
+                    dataType:'json',
+                    success:function(data){
+                        if (data.success) {
+                            layer.alert(data.msg, function (index) {
+                                layer.close(index);
+                                listForm.page = '1';
+                                listForm.loadList();
+                            })
+                        } else {
+                            layer.alert(data.msg);
+                        }
+                    }
+
+                })
+            };
+            layer.confirm('确定上架此景区?', yes, cancel);
+        });
+        //下架
+        $('#scenic_list_layer').on('click', '.uiDown', function(evt) {
+            var currentTarget = $(evt.currentTarget),
+                scenic_id = currentTarget.data('id');
+            var cancel = function(index) {
+                layer.close(index);
+            };
+            var yes = function() {
+                $.ajax({
+                    type: 'post',
+                    url: '/scenic-show/ajax-down-scenic',
+                    data: {'_csrf': GLOBAL.csrf, 'id': scenic_id},
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            layer.alert(data.msg, function (index) {
+                                layer.close(index);
+                                listForm.page = '1';
+                                listForm.loadList();
+                            })
+                        } else {
+                            layer.alert(data.msg);
+                        }
+                        window.location.reload();
+                    }
+
+                })
+            };
+            layer.confirm('确定下架此景区?', yes, cancel);
+        });
+        //强制下架
+        $('#scenic_list_layer').on('click', '.force_down', function(evt) {
+            var currentTarget = $(evt.currentTarget),
+                scenic_id = currentTarget.data('id');
+            var cancel = function(index) {
+                layer.close(index);
+            };
+            var yes = function() {
+                $.ajax({
+                    type: 'post',
+                    url: '/scenic-show/ajax-force-down-scenic',
+                    data: {'_csrf': GLOBAL.csrf, 'id': scenic_id},
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            layer.alert(data.msg, function (index) {
+                                layer.close(index);
+                                listForm.page = '1';
+                                listForm.loadList();
+                            })
+                        } else {
+                            layer.alert(data.msg);
+                        }
+                        window.location.reload();
+                    }
+
+                })
+            };
+            layer.confirm('确定强制下架此景区?', yes, cancel);
+        });
+        //下架
+        $('#uiDownBtn').bind('click', function () {
+            var o_id = [];
+            var pt = $("input[name='ckbox']:checked");
+            var plen = pt.length;
+            if (plen == 0) {
+                layer.alert('请勾选你要处理的数据');
+                return false;
+            }
+            for (var i = 0; i < plen; i++) {
+                var pv = pt.eq(i);
+                var pv_i = pv.val();
+                var id = pv.data('id');
+                var status = pv.data('status');
+                if (status == 1) {
+                    o_id.push(pv_i);
+                } else {
+                    layer.alert('只能下架已上架的景区');
+                }
+            }
+
+            var o_id_str = o_id.join(',');
+            layer.confirm('确认确定下架？', function () {
+                $.ajax({
+                    type: "POST",
+                    url: GLOBAL.module_url + "/ajax-down-scenic",
+                    data: {id: o_id_str, '_csrf': GLOBAL.csrf},
+                    dataType: "json",
+                    success: function (res) {
+                        layer.alert(res.msg);
+                        if (res.success) {
+                            listForm.loadList();
+                        } else {
+                            layer.alert(res.msg);
+                        }
+                    }
+                });
+            });
+        })
+
+        //上架
+        $('#uiUpBtn').bind('click', function () {
+            var o_id = [];
+            var pt = $("input[name='ckbox']:checked");
+            var plen = pt.length;
+            if (plen == 0) {
+                layer.alert('请勾选你要处理的数据');
+                return false;
+            }
+            for (var i = 0; i < plen; i++) {
+                var pv = pt.eq(i);
+                var pv_i = pv.val();
+                var id = pv.data('id');
+                var status = pv.data('status');
+                if (status == 0 || status == 2) {
+                    o_id.push(pv_i);
+                } else {
+                    layer.alert('只能上架已下架景区');
+                }
+            }
+            var o_id_str = o_id.join(',');
+            layer.confirm('确认确定上架？', function () {
+                $.ajax({
+                    type: "POST",
+                    url: GLOBAL.module_url + "/ajax-up-scenic",
+                    data: {id: o_id_str, '_csrf': GLOBAL.csrf},
+                    dataType: "json",
+                    success: function (res) {
+                        if (!res.success) {
+                            layer.alert(res.msg);
+                        } else {
+                            listForm.loadList();
+                            layer.alert('操作成功');
+                        }
+                    }
+                });
+            });
+        })
+
+        //强制下架
+        $('#uiForceDownBtn').bind('click', function () {
+            var o_id = [];
+            var pt = $("input[name='ckbox']:checked");
+            var plen = pt.length;
+            if (plen == 0) {
+                layer.alert('请勾选你要处理的数据');
+                return false;
+            }
+            for (var i = 0; i < plen; i++) {
+                var pv = pt.eq(i);
+                var pv_i = pv.val();
+                var id = pv.data('id');
+                var status = pv.data('status');
+                if (status == 1) {
+                    o_id.push(pv_i);
+                } else {
+                    layer.alert('只能强制下架已上架的景区');
+                }
+            }
+
+            var o_id_str = o_id.join(',');
+            layer.confirm('确认确定强制下架？', function () {
+                $.ajax({
+                    type: "POST",
+                    url: GLOBAL.module_url + "/ajax-force-down-scenic",
+                    data: {id: o_id_str, '_csrf': GLOBAL.csrf},
+                    dataType: "json",
+                    success: function (res) {
+                        layer.alert(res.msg);
+                        if (res.success) {
+                            listForm.loadList();
+                        } else {
+                            layer.alert(res.msg);
+                        }
+                    }
+                });
+            });
+        })
 
     })
 })();

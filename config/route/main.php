@@ -42,6 +42,10 @@ return [
     'order/ajax/export_data' => 'order/ajax-export-data',
     'order/ajax/order_refund_audit' => 'order/ajax-order-refund-audit',
 
+    //order_processor
+    'order-processor/complete_refund_order'=>'order-processor/complete-refund-order',
+    'order-processor/cancel_unpaid_order'=>'order-processor/cancel-unpaid-order',
+
     //scenic
     'scenic-show/ajax/scenic_list' => 'scenic-show/ajax-scenic-list',
 

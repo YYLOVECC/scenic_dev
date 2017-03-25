@@ -7,7 +7,9 @@
  */
 namespace app\controllers;
 use app\components\SuperController;
+use app\components\UserIdentity;
 use app\services\func\ScenicShowService;
+use app\services\func\UsersService;
 use yii\web\HttpException;
 use Yii;
 
@@ -32,11 +34,45 @@ class ScenicShowController extends SuperController
     }
     public function actionIndex()
     {
+        //获取模块的操作权限
+        $actions = $this->getActionKeysByMid($this->module_id);
+        //获取当前用户用户信息
+        $user_info = UserIdentity::getUserInfo();
+        //获取所有用户信息
+        $user_service = new UsersService();
+        $all_user_info = $user_service->getAllUser();
+        $distributor_users = [];
+        $scenic_arr = [];
+        foreach($all_user_info as $user_item) {
+            $distributor_users[$user_item['id']] = $user_item['name'];
+        }
+        //景区名称
+        $scenic_service = new ScenicShowService();
+        $all_scenic_arr = $scenic_service->getAllScenicInfo();
+        foreach ($all_scenic_arr as $value) {
+            $scenic_arr[$value['id']] = $value['name'];
+        }
+        //取当前用户所拥有的景区
+        $scenic_service = new ScenicShowService();
+        $valid_scenic = [];
+        $current_name = $user_info['name'];
+        if ($current_name != 'admin') {
+            $valid_scenic_info = $scenic_service->getValidScenicInfo($user_info);
+            foreach ($valid_scenic_info as $scenic) {
+                $valid_scenic[$scenic['id']] = $scenic['name'];
+            }
+        }
         $this->scripts = [
             'js/scenic-show/list.js',
             'libs/kalendae/kalendae.standalone.js'
         ];
-        $data = ['module_url'=>$this->_module_url];
+        $data = [
+                 'actions' => $actions,
+                 'module_url'=>$this->_module_url,
+                 'user_info'=>$user_info,
+                 'distributor_users'=>$distributor_users,
+                 'scenic_arr'=>!empty($valid_scenic) ? $valid_scenic:$scenic_arr
+                 ];
         return $this->render('list.twig', $data);
     }
     /**
@@ -60,6 +96,8 @@ class ScenicShowController extends SuperController
                 $created_at_end += 86400;
             }
         }
+        $scenic_id = $request->post('scenic_id', 0);
+        $user_id = $request->post('distributor_id', 0);
         $created_at_begin = date('Y-m-d H:i:s', $created_at_begin);
         $created_at_end = date('Y-m-d H:i:s', $created_at_end);
         $ordinal_str = $request->post('ordinal_str', '');
@@ -69,10 +107,85 @@ class ScenicShowController extends SuperController
         $query = [
             'created_at_begin' => $created_at_begin,
             'created_at_end' => $created_at_end,
+            'scenic_id' => $scenic_id,
+            'user_id' => $user_id
         ];
         $scenic_service = new ScenicShowService();
         $result = $scenic_service->searchScenicList($query, $ordinal_str, $ordinal_type, $limit, $limit_size);
         return json_encode($result);
     }
+    /**
+     *下架
+     */
+    public function actionAjaxDownScenic(){
+        //停用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'down')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $scenic_ids = $request->post('id', 0);
+        if(empty($scenic_ids)){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误: scenic_id']);
+        }
+        //处理用户停用
+        $role_service = new ScenicShowService();
+        $result = $role_service->downScenic($scenic_ids);
+        return json_encode($result);
+    }
+
+
+    /**
+     * 上架
+     */
+    public function actionAjaxUpScenic(){
+        //启用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'up')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $scenic_ids = $request->post('id', 0);
+        if(!$scenic_ids){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误：scenic_ids']);
+        }
+        $role_service = new ScenicShowService();
+        $result = $role_service->upScenic($scenic_ids);
+        return json_encode($result);
+    }
+    /**
+     * 强制下架
+     */
+    public function actionAjaxForceDownScenic(){
+        //启用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'force_down')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $scenic_ids = $request->post('id', 0);
+        if(!$scenic_ids){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误：scenic_ids']);
+        }
+        $role_service = new ScenicShowService();
+        $result = $role_service->forceDownScenic($scenic_ids);
+        return json_encode($result);
+    }
+
 
 }

@@ -8,204 +8,39 @@
 
 namespace app\services\order;
 
-use app\components\SiteConfig;
-use app\models\BaseMerchandiseInfoModel;
-use app\models\BaseMerchandiseSpecificationsModel;
-use app\models\MerchandiseInfoModel;
-use app\models\MerchandiseSpecificationsModel;
 use app\models\OrderDetailsModel;
-use app\models\OrderGroupedDetailsModel;
 use app\models\OrderInfoModel;
-use app\models\OperationsModel;
-use app\models\OperationItemsModel;
 use app\models\OrderPaymentDetailsModel;
-use app\services\store\CMerchandiseService;
 use app\services\super\CLogService;
-use app\util\ArrayUtil;
 use app\util\ConstantConfig;
-use app\util\StringUtil;
-use Setting;
 use Yii;
-use app\util\CutWordsClient;
 use yii\base\Exception;
-use yii\helpers\ArrayHelper;
 
 class COrderService {
     /**
-     * 得到订单状态的中文解释
-     * @param $order_info
-     * @return string
-     */
-    public function getOrderStatusStr($order_info){
-        if(empty($order_info)){
-            return '空';
-        }
-        $pay_type = $order_info['pay_type'];
-        $order_status = $order_info['order_status'];
-        $shipping_status = $order_info['shipping_status'];
-//        $pay_status = $order_info['pay_status'];
-        if($pay_type == ConstantConfig::PAY_TYPE_ONLINE && $order_status==ConstantConfig::ORDER_STATUS_DEFAULT){
-            $str = ConstantConfig::ORDER_STATUS_STR_WAITING_FOR_PAYMENT;
-        }elseif($order_status == ConstantConfig::ORDER_STATUS_WAITING_FOR_CONFIRMATION){
-            $str = ConstantConfig::ORDER_STATUS_STR_WAITING_FOR_CONFIRMATION;
-        }elseif($order_status == ConstantConfig::ORDER_STATUS_WAITING_FOR_DELIVERY && $shipping_status == ConstantConfig::SHIPPING_STATUS_NON_DELIVERY){
-            $str = ConstantConfig::ORDER_STATUS_STR_WAITING_FOR_DELIVERY;
-        }elseif($order_status == ConstantConfig::ORDER_STATUS_WAITING_FOR_RECEIVE && $shipping_status == ConstantConfig::SHIPPING_STATUS_DISTRIBUTION){
-            $str = ConstantConfig::ORDER_STATUS_STR_WAITING_FOR_RECEIVE;
-        }elseif($order_status == ConstantConfig::ORDER_STATUS_COMPLETE){
-            $str = ConstantConfig::ORDER_STATUS_STR_COMPLETE;
-        }elseif($order_status == ConstantConfig::ORDER_STATUS_CANCEL){
-            $str = ConstantConfig::ORDER_STATUS_STR_CANCEL;
-        }else{
-            $str = '未知';
-        }
-        return $str;
-    }
-
-    /**
-     * 得到订单的支付价格
-     * @param $order_info
-     * @return float|int
-     */
-    public function getAllPayPrice($order_info){
-        if(empty($order_info)){
-            return 0;
-        }
-        $exchange_rate = $order_info['exchange_rate']; //币种汇率
-        $original_price = $order_info['original_price']; //商品总额
-        $shipping_fee = $order_info['shipping_fee'];//物流费用
-        $insure_fee = $order_info['insure_fee'];//保险费用
-        $red_envelope = $order_info['red_envelope']; //红包金额
-        $bonus = $order_info['bonus']; //让利金额
-        $distribution_price = $order_info['distribution_price']; //分销价
-        //订单支付金额 = 商品总额 * 币种汇率 + 物流费用 + 分销价 - 红包 - 让利
-        $all_price = round(floatval($original_price) * floatval($exchange_rate) + floatval($shipping_fee) + floatval($insure_fee)
-            + floatval($distribution_price) - floatval($red_envelope) - floatval($bonus), 2);
-        return $all_price;
-    }
-
-    /**
-     * 得到订单的总金额
-     * @param $order_info
-     * @return float|int
-     */
-    public function getAllPrice($order_info){
-        if(empty($order_info)){
-            return 0;
-        }
-        $original_price = floatval($order_info['original_price']); //商品总额
-        $shipping_fee = floatval($order_info['shipping_fee']);//物流费用
-        $insure_fee = floatval($order_info['insure_fee']);//保险费用
-        $exchange_rate = floatval($order_info['exchange_rate']);//保险费用
-        //订单总额 = 商品总额 * 币种汇率 + 物流费用 + 保险费用
-        $all_price = round($original_price * $exchange_rate + floatval($shipping_fee) + floatval($insure_fee), 2);
-        return $all_price;
-    }
-
-
-    /**
-     * 验证订单是否能够被取消
+     * 验证订单完成退款状态
      * @param $order_ids
      * @return array
      */
-    public function validateOrderCancel($order_ids){
+    public function validateCompleteRefund($order_ids){
         $order_info_dict = $this->getOrderInfoDict($order_ids);
         if(empty($order_info_dict)){
             return [];
         }
+
         $y_array = [];
         $n_array = [];
         foreach($order_info_dict as $order_id=>$order_info){
             $order_status = $order_info['order_status'];
             $pay_status = $order_info['pay_status'];
-//            $pay_type = $order_info['pay_type'];
-            if($order_status==ConstantConfig::ORDER_STATUS_WAITING_FOR_CONFIRMATION ||
-                $order_status==ConstantConfig::ORDER_STATUS_DEFAULT){//可以被取消
-                if($pay_status == ConstantConfig::PAY_STATUS_UNPAID){
-                    array_push($y_array, $order_id);
-                }elseif($pay_status == ConstantConfig::PAY_STATUS_PAID){//该订单已经付款，不能作废，请进行退款操作
-                    array_push($n_array, ['sn'=>$order_info['sn'], 'msg'=>'在线已支付订单不能作废，可进行退款操作']);
-                }
-            }else{
-                array_push($n_array, ['sn'=>$order_info['sn'], 'msg'=>'订单状态有误']);
-            }
-        }
-        return ['y'=>$y_array, 'n'=>$n_array];
-    }
-
-
-    /**
-     * 验证订单是否能够被反作废
-     * @param $order_ids
-     * @return array
-     */
-    public function orderAntiCancel($order_ids){
-        $order_info_dict = $this->getOrderInfoDict($order_ids);
-        if(empty($order_info_dict)){
-            return [];
-        }
-        $y_d_array = [];//需修改为待付款状态的订单
-        $y_c_array = [];//需修改为待确认状态的订单
-        $n_array = [];
-        foreach($order_info_dict as $order_id=>$order_info){
-            $order_status = (int)$order_info['order_status'];
-            if($order_status==ConstantConfig::ORDER_STATUS_CANCEL){//可以反作废
-                //在线支付更为待付款（在线支付已走申请退款流程，支付状态更为未付款）
-                if(in_array((int)$order_info['pay_type'],
-                        [ConstantConfig::PAY_TYPE_ONLINE, ConstantConfig::PAY_TYPE_OUTSIDE])){
-                    $y_d_array[] = $order_id;
-                }else{
-                    $y_c_array[] = $order_id;
-                }
+            if($pay_status==ConstantConfig::PAY_STATUS_REFUNDING && $order_status!=ConstantConfig::ORDER_STATUS_CANCEL){
+                array_push($y_array, $order_id);
             }else{
                 array_push($n_array, $order_id);
             }
         }
-        return ['yd'=>$y_d_array, 'yc' => $y_c_array, 'n'=>$n_array];
+        return ['y'=>$y_array, 'n'=>$n_array];
     }
-
-    /**
-     * 获取订单信息
-     * @param $order_ids
-     * @return array|bool|null
-     */
-    public function getOrderInfoList($order_ids){
-        if (empty($order_ids)){
-            return null;
-        }
-        $order_info_model = new OrderInfoModel();
-        $order_infos = $order_info_model->getOrderInfoList($order_ids);
-        if(empty($order_infos)){
-            return null;
-        }
-        return $order_infos;
-    }
-
-    /**
-     * 根据id获取订单信息
-     * @param $order_id
-     * @return array|bool|null
-     */
-    public function getOrderInfo($order_id)
-    {
-        if(empty($order_id)){
-            return null;
-        }
-        $order_info_model = new OrderInfoModel();
-        $order_info_model->setId($order_id);
-        return $order_info_model->getOrderInfo();
-    }
-
-    public function getOrderInfoBySn($order_sn)
-    {
-        if(empty($order_sn)){
-            return null;
-        }
-        $order_info_model = new OrderInfoModel();
-        $order_info_model->setSn($order_sn);
-        return $order_info_model->getOrderInfoBySnOrRelatedSn();
-    }
-
     /**
      * 活取订单信息
      * @param $order_ids
@@ -379,4 +214,4 @@ class COrderService {
         }
         return $order_payment_details;
     }
-} 
+}

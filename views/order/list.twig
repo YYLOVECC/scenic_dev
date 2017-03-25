@@ -7,11 +7,13 @@
             <em class="ftd">下单时间</em>
             <input name="xx" type="text" class="pt" id="riqi" autocomplete="off">
             <em class="ftd">订单号</em><input id="order_sn" name="order_sn" type="text" class="pt" autocomplete="off">
-            {% if scenic_name_arr %}
-                <em class="ftd">景区名称</em>
-                <select name="scenic_name"  class="pt" id="scenic_name"><option value="-1">全部</option>
-                </select>
-            {% endif %}
+            <em class="ftd">景区名称</em>
+            <select name="scenic_name"  class="pt" id="scenic_name">
+                <option value="-1">全部</option>
+                {% for id,name in valid_scenic %}
+                    <option value="{{ id }}"> {{ name }}</option>
+                {% endfor%}
+            </select>
             <em class="ftd">手机号码</em><input id="mobile" name="mobile" type="text" class="pt" autocomplete="off">
             <em class="ftd">游客姓名</em><input type="text" id="tourist_name" name="tourist_name" class="pt" placeholder="游客姓名" />
             <em class="ftd">门票名称</em><input type="text" id="ticket_name" name="ticket_name" class="pt" placeholder="门票名称" />
@@ -30,8 +32,8 @@
                     {% endfor %}
                 </select>
 
-                <em class="ftd">门票价格</em>
-                <select name="ticket_price" class="pt" id="pay_price">
+                <em class="ftd">支付价格</em>
+                <select name="pay_price" class="pt" id="pay_price">
                     <option value="-1">全部</option>
                     <option value="0-100">0-100</option>
                     <option value="100-300">100-300</option>
@@ -53,7 +55,7 @@
                 <select id="distributor_id" name="distributor_id"  class="pt" {% if user_info.name != 'admin' %} disabled {% endif %}>
                     <option value="-1">全部</option>
                     {% for user_id, user_name in distributor_users %}
-                        <option value="{{ user_id }}" {% if user_info.name!='admin' and user_info.id == user_id %} selected {% endif %}>{{ user_name }}</option>
+                        <option value="{{ user_id }}" {% if user_info.name!='admin' and user_info.name == user_name %} selected {% endif %}>{{ user_name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -78,10 +80,6 @@
         {% if 'import' in actions %}
             <a class="gbtn mr10" href="javascript:;" id="uiExportDataBtn">导入</a>
         {% endif %}
-
-
-
-
     </div>
     <p class="lh20">&nbsp;</p>
 
@@ -96,6 +94,7 @@
                 <th>经销商</th>
                 <th>景区名称</th>
                 <th>订单状态</th>
+                <th>入园状态</th>
                 <th>支付状态</th>
                 <th>游客姓名</th>
                 <th>手机号码</th>
@@ -128,6 +127,7 @@
             <td><%=order.distributor_name%></td>
             <td><%=order.scenic_name%></td>
             <td><em id="order_status_<%=order.id%>"><%=order.order_status_str%></em></td>
+            <td><%=order.admission_status%></td>
             <td><em id="pay_status_<%=order.id%>"><%=order.pay_status_str%></em></td>
             <td id="tourist_name_<%=order.id%>"><%=order.tourist_name%></td>
             <td id="mobile_<%=order.id%>"><%=order.mobile%></td>

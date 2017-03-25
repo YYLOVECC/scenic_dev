@@ -6,8 +6,12 @@
  * Time: 16:12
  */
 namespace app\controllers;
+
 use app\components\SuperController;
+use app\components\UserIdentity;
+use app\services\func\ScenicShowService;
 use app\services\func\TicketShowService;
+use app\services\func\UsersService;
 use yii\web\HttpException;
 use Yii;
 
@@ -30,15 +34,51 @@ class TicketShowController extends SuperController
         }
         $this->_module_url = $module_url;
     }
+
     public function actionIndex()
     {
+        //获取模块的操作权限
+        $actions = $this->getActionKeysByMid($this->module_id);
+        //获取当前用户用户信息
+        $user_info = UserIdentity::getUserInfo();
+        //获取所有用户信息
+        $user_service = new UsersService();
+        $all_user_info = $user_service->getAllUser();
+        $distributor_users = [];
+        $scenic_arr = [];
+        foreach ($all_user_info as $user_item) {
+            $distributor_users[$user_item['id']] = $user_item['name'];
+        }
+        //获取景区信息
+        $scenic_service = new ScenicShowService();
+        $all_scenic_arr = $scenic_service->getAllScenicInfo();
+        foreach ($all_scenic_arr as $value) {
+            $scenic_arr[$value['id']] = $value['name'];
+        }
+        //取当前用户所拥有的景区
+        $scenic_service = new ScenicShowService();
+        $valid_scenic = [];
+        $current_name = $user_info['name'];
+        if ($current_name != 'admin') {
+            $valid_scenic_info = $scenic_service->getValidScenicInfo($user_info);
+            foreach ($valid_scenic_info as $scenic) {
+                $valid_scenic[$scenic['id']] = $scenic['name'];
+            }
+        }
         $this->scripts = [
             'js/ticket-show/list.js',
             'libs/kalendae/kalendae.standalone.js',
         ];
-        $data = ['module_url'=>$this->_module_url];
+        $data = [
+            'module_url' => $this->_module_url,
+            'user_info' => $user_info,
+            'distributor_users' => $distributor_users,
+            'scenic_arr' => !empty($valid_scenic)? $valid_scenic:$scenic_arr,
+            'actions' => $actions
+        ];
         return $this->render('list.twig', $data);
     }
+
     /**
      * 通过ajax列表得到数据
      * @return string
@@ -60,6 +100,18 @@ class TicketShowController extends SuperController
                 $created_at_end += 86400;
             }
         }
+        $ticket_price_str = $request->post('ticket_price', '-1');
+        $ticket_price_begin = 0;
+        $ticket_price_end = 0;
+        if ($ticket_price_str != '-1') {
+            $ticket_price_arr = explode('-', $ticket_price_str);
+            $ticket_price_begin = $ticket_price_arr[0];
+            $ticket_price_end = count($ticket_price_arr) > 1 ? $ticket_price_arr[1] : 0;
+
+        }
+        $user_id = $request->post('distributor_id', 0);
+        $scenic_id = $request->post('scenic_id', 0);
+        $ticket_name = $request->post('ticket_name', '');
         $created_at_begin = date('Y-m-d H:i:s', $created_at_begin);
         $created_at_end = date('Y-m-d H:i:s', $created_at_end);
         $ordinal_str = $request->post('ordinal_str', '');
@@ -69,9 +121,87 @@ class TicketShowController extends SuperController
         $query = [
             'created_at_begin' => $created_at_begin,
             'created_at_end' => $created_at_end,
+            'ticket_price_begin' => $ticket_price_begin,
+            'ticket_price_end' => $ticket_price_end,
+            'scenic_id' => $scenic_id,
+            'ticket_name' => $ticket_name,
+            'user_id' => $user_id,
         ];
         $ticket_service = new TicketShowService();
         $result = $ticket_service->searchTicketList($query, $ordinal_str, $ordinal_type, $limit, $limit_size);
+        return json_encode($result);
+    }
+    /**
+     *下架
+     */
+    public function actionAjaxDownTicket(){
+        //停用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'down')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $ticket_ids = $request->post('id', 0);
+        if(empty($ticket_ids)){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误: ticket_ids']);
+        }
+        //处理用户停用
+        $role_service = new TicketShowService();
+        $result = $role_service->downTicket($ticket_ids);
+        return json_encode($result);
+    }
+
+
+    /**
+     * 上架
+     */
+    public function actionAjaxUpTicket(){
+        //启用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'up')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $ticket_ids = $request->post('id', 0);
+        if(!$ticket_ids){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误：scenic_ids']);
+        }
+        $role_service = new TicketShowService();
+        $result = $role_service->upTicket($ticket_ids);
+        return json_encode($result);
+    }
+    /**
+     *下架
+     */
+    public function actionAjaxForceDownTicket(){
+        //停用操作权限检测
+        if(!$this->checkModuleActionAccess($this->module_id, 'force_down')){
+            if (Yii::$app->request->isAjax) {
+                return json_encode(["success" => false, "msg" => "无权限操作"]);
+            } else {
+                throw new HttpException(400);
+            }
+        }
+
+        //获取post参数
+        $request = Yii::$app->request;
+        $ticket_ids = $request->post('id', 0);
+        if(empty($ticket_ids)){
+            return json_encode(['success'=>false, 'msg'=>'参数传递错误: ticket_ids']);
+        }
+        //处理用户停用
+        $role_service = new TicketShowService();
+        $result = $role_service->forceDownTicket($ticket_ids);
         return json_encode($result);
     }
 }

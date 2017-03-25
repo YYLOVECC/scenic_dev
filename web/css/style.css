@@ -38,7 +38,7 @@ a:hover{text-decoration:underline;}
 .lh30{line-height:30px;}
 .lh35{line-height:35px;}
 .lh50{line-height:50px;}
-.left{float:left;}
+.left{float:left; margin-left: 30px;}
 .right{float:right;}
 .clear{clear:both;}
 .clearfix:after{content:" ";display:block;height:0;clear:both;visibility:hidden;}

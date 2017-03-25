@@ -133,6 +133,7 @@ function save_feature_privilege(){
         success: function(result) {
             if (result.success){
                 close_gn();
+                window.location.reload();
             }else{
                 layer.alert(result.msg);
             }

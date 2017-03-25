@@ -17,12 +17,28 @@
     var get_search_params = function() {
         var post_data      = {};
         var riqi           = $('#riqi').val();
-
+        var ticket_name = $('#ticket_name').val();
+        var scenic_id = $('#scenic_id option:selected').val();
+        var ticket_price      = $('#ticket_price option:selected').val();
+        var distributor_id = $('#distributor_id option:selected').val();
 
         // 判断是否包含日期条件
         if (riqi) {
             post_data['created_at_str'] = riqi.trim();
         }
+        if (ticket_name) {
+            post_data['ticket_name'] = ticket_name.trim();
+        }
+        if (scenic_id>0) {
+            post_data['scenic_id'] =scenic_id;
+        }
+        if (ticket_price) {
+            post_data['ticket_price'] = ticket_price;
+        }
+        if (distributor_id>0) {
+            post_data['distributor_id'] = distributor_id;
+        }
+
         return post_data;
     };
 
@@ -76,5 +92,244 @@
         });
         //初始化列表
         listForm.loadList();
+
+        $('#search_ticket_list_button').on('click', function() {
+            listForm.page=1;
+            listForm.loadList();
+            $('#checked_count').html(0);
+        });
+        /**
+         * 获取checkbox的选中值
+         */
+        var getSelectedCheckboxValues = function() {
+            var ids = [];
+            $('input[name="ckbox"]:checked').each(function (index, item) {
+                ids.push($(item).data('id'));
+            });
+            return ids.join(',');
+        };
+        /**
+         * 统计勾选的总数
+         */
+        var countSelectedItems = function() {
+            var checkedItems = getSelectedCheckboxValues(),
+                checkedItemArr = checkedItems.split(',').filter(function (item) {
+                    return item != "";
+                });
+            $('#checked_count').html(checkedItemArr.length);
+        };
+        // `common.js`中条目的点击后会触发该全局绑定事件
+        $('body').on('OrderList:UpdateSelectedItems', function() {
+            countSelectedItems();
+        });
+        //上架
+        $('#ticket_list_layer').on('click', '.uiUp', function(evt){
+            var currentTarget = $(evt.currentTarget),
+                ticket_id = currentTarget.data('id');
+            var cancel = function(index) {
+                layer.close(index);
+            };
+            var yes = function() {
+                $.ajax({
+                    type: 'post',
+                    url: '/scenic-show/ajax-up-ticket',
+                    data:{'_csrf':GLOBAL.csrf, 'id':ticket_id},
+                    dataType:'json',
+                    success:function(data){
+                        if (data.success) {
+                            layer.alert(data.msg, function (index) {
+                                layer.close(index);
+                                listForm.page = '1';
+                                listForm.loadList();
+                            })
+                        } else {
+                            layer.alert(data.msg);
+                        }
+                        window.location.reload();
+                    }
+
+                })
+            };
+            layer.confirm('确定上架此门票?', yes, cancel);
+        });
+        //下架
+        $('#ticket_list_layer').on('click', '.uiDown', function(evt) {
+            var currentTarget = $(evt.currentTarget),
+                ticket_id = currentTarget.data('id');
+            var cancel = function(index) {
+                layer.close(index);
+            };
+            var yes = function() {
+                $.ajax({
+                    type: 'post',
+                    url: '/scenic-show/ajax-down-ticket',
+                    data: {'_csrf': GLOBAL.csrf, 'id': ticket_id},
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            layer.alert(data.msg, function (index) {
+                                layer.close(index);
+                                listForm.page = '1';
+                                listForm.loadList();
+                            })
+                        } else {
+                            layer.alert(data.msg);
+                        }
+                        window.location.reload();
+                    }
+
+                })
+            };
+            layer.confirm('确定下架此门票?', yes, cancel);
+        });
+        //下架
+        $('#ticket_list_layer').on('click', '.force-down', function(evt) {
+            var currentTarget = $(evt.currentTarget),
+                ticket_id = currentTarget.data('id');
+            var cancel = function(index) {
+                layer.close(index);
+            };
+            var yes = function() {
+                $.ajax({
+                    type: 'post',
+                    url: '/scenic-show/ajax-down-ticket',
+                    data: {'_csrf': GLOBAL.csrf, 'id': ticket_id},
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            layer.alert(data.msg, function (index) {
+                                layer.close(index);
+                                listForm.page = '1';
+                                listForm.loadList();
+                            })
+                        } else {
+                            layer.alert(data.msg);
+                        }
+                        window.location.reload();
+                    }
+
+                })
+            };
+            layer.confirm('确定强制下架此门票?', yes, cancel);
+        });
+
+        //下架
+        $('#uiDownBtn').bind('click', function () {
+            var o_id = [];
+            var pt = $("input[name='ckbox']:checked");
+            var plen = pt.length;
+            if (plen == 0) {
+                layer.alert('请勾选你要处理的数据');
+                return false;
+            }
+            for (var i = 0; i < plen; i++) {
+                var pv = pt.eq(i);
+                var pv_i = pv.val();
+                var id = pv.data('id');
+                var status = pv.data('status');
+                if (status == 1) {
+                    o_id.push(pv_i);
+                } else {
+                    layer.alert('只能下架已上架的门票');
+                }
+            }
+
+            var o_id_str = o_id.join(',');
+            layer.confirm('确认确定下架？', function () {
+                $.ajax({
+                    type: "POST",
+                    url: GLOBAL.module_url + "/ajax-down-ticket",
+                    data: {id: o_id_str, '_csrf': GLOBAL.csrf},
+                    dataType: "json",
+                    success: function (res) {
+                        layer.alert(res.msg);
+                        if (res.success) {
+                            listForm.loadList();
+                        } else {
+                            layer.alert(res.msg);
+                        }
+                    }
+                });
+            });
+        })
+
+        //上架
+        $('#uiUpBtn').bind('click', function () {
+            var o_id = [];
+            var pt = $("input[name='ckbox']:checked");
+            var plen = pt.length;
+            if (plen == 0) {
+                layer.alert('请勾选你要处理的数据');
+                return false;
+            }
+            for (var i = 0; i < plen; i++) {
+                var pv = pt.eq(i);
+                var pv_i = pv.val();
+                var id = pv.data('id');
+                var status = pv.data('status');
+                if (status == 0 ||status == 2) {
+                    o_id.push(pv_i);
+                } else {
+                    layer.alert('只能上架已下架门票');
+                }
+            }
+            var o_id_str = o_id.join(',');
+            layer.confirm('确认确定上架？', function () {
+                $.ajax({
+                    type: "POST",
+                    url: GLOBAL.module_url + "/ajax-up-ticket",
+                    data: {id: o_id_str, '_csrf': GLOBAL.csrf},
+                    dataType: "json",
+                    success: function (res) {
+                        if (!res.success) {
+                            layer.alert(res.msg);
+                        } else {
+                            listForm.loadList();
+                            layer.alert('操作成功');
+                        }
+                    }
+                });
+            });
+        })
+
+        //强制下架
+        $('#uiForceDownBtn').bind('click', function () {
+            var o_id = [];
+            var pt = $("input[name='ckbox']:checked");
+            var plen = pt.length;
+            if (plen == 0) {
+                layer.alert('请勾选你要处理的数据');
+                return false;
+            }
+            for (var i = 0; i < plen; i++) {
+                var pv = pt.eq(i);
+                var pv_i = pv.val();
+                var id = pv.data('id');
+                var status = pv.data('status');
+                if (status == 1) {
+                    o_id.push(pv_i);
+                } else {
+                    layer.alert('只能强制下架已上架的门票');
+                }
+            }
+
+            var o_id_str = o_id.join(',');
+            layer.confirm('确认确定强制下架？', function () {
+                $.ajax({
+                    type: "POST",
+                    url: GLOBAL.module_url + "/ajax-force-down-ticket",
+                    data: {id: o_id_str, '_csrf': GLOBAL.csrf},
+                    dataType: "json",
+                    success: function (res) {
+                        layer.alert(res.msg);
+                        if (res.success) {
+                            listForm.loadList();
+                        } else {
+                            layer.alert(res.msg);
+                        }
+                    }
+                });
+            });
+        })
     })
 })();

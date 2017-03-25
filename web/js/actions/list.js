@@ -111,7 +111,6 @@ var enable = function(id,is_enable){
         })
     };
     layer.confirm('是否'+status+'该行为?', yes, cancel);
-
 };
 
 $(function () {

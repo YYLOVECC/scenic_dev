@@ -68,6 +68,10 @@ class ConstantConfig
     //资源类别
     const RESOURCE_NOT = 0;
     const RESOURCE_ORDER = 1; //订单
+    //上下架操作
+    const STATUS_UP = 1;//上架
+    const STATUS_DOWN = 0;//下架
+    const STATUS_FORCE_DOWN = 2;//强制下架
 
 
 

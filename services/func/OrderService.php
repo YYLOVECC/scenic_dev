@@ -10,18 +10,16 @@
 
 namespace app\services\func;
 
-use app\components\UserIdentity;
 use app\models\OrderDetailsModel;
 use app\models\OrderInfoModel;
 use app\models\OrderPaymentDetailsModel;
+use app\models\ScenicModel;
+use app\models\TicketModel;
+use app\models\UserInfoModel;
 use app\services\order\COrderService;
-use app\util\ArrayUtil;
 use app\util\ConstantConfig;
-use app\util\ExcelUtil;
-use app\util\StringUtil;
 use Exception;
 use Yii;
-use yii\helpers\ArrayHelper;
 
 class OrderService
 {
@@ -44,6 +42,7 @@ class OrderService
         $order_list = $this->_formatOrderList($order_list);
         return ['success' => true, 'count' => $count, 'order_data' => $order_list];
     }
+
     /**
      * 格式化订单列表数据
      * @param $order_data
@@ -62,23 +61,10 @@ class OrderService
             $pay_status = intval($value['pay_status']);
             $value['order_status_str'] = array_key_exists($order_status, $order_status_arr) ? $order_status_arr[$order_status] : '未知';
             $value['pay_status_str'] = array_key_exists($pay_status, $pay_status_arr) ? $pay_status_arr[$pay_status] : '未知';
+            $current_time = time();
+            $value['admission_status'] = $value['admission_time'] - $current_time < 0 ? '已入园' : '未入园';
         }
         return $order_data;
-    }
-
-    /**
-     * 生成订单单号，获取规则： 获取时间的 ymdHis + 3位毫秒数+ 4位随机数
-     * @return string
-     */
-    public function generateOrderSN()
-    {
-        $cur_data = date("YmdHis");
-        $m_list = explode(' ', microtime());
-        $um = $m_list[0];//微秒
-        $ms = intval($um * 1000);
-        $ms_str = sprintf("%03d", $ms);
-        $rand_num = mt_rand(1000, 9999);
-        return $cur_data . $ms_str . $rand_num;
     }
 
 
@@ -162,8 +148,9 @@ class OrderService
         }
         $y_order_ids = $validate_for_example['y'];//客审/反审订单id数组
         $n_orders = $validate_for_example['n'];//不能进行客审/反审订单sn及错误信息数组
+        $update_order_ids = $validate_for_example['ids'];
         $action_relation_order_status = ConstantConfig::confirmationRelationOrderStatus()[$action_type];
-        if($action_type == ConstantConfig::CONFIRMATION_ACTION_TYPE_TO_EXAMINE) {
+        if ($action_type == ConstantConfig::CONFIRMATION_ACTION_TYPE_TO_EXAMINE) {
             $action_str = '客审';
         } else {
             $action_str = '反审';
@@ -179,6 +166,12 @@ class OrderService
             );
             if (!$res) {
                 throw new Exception('更改订单状态错误：' . $action_str . '失败');
+            }
+            //更改景区状态
+            $scenic_model = new ScenicModel();
+            $update_res = $scenic_model->updateStatus($action_type, $update_order_ids);
+            if ($update_res) {
+                throw new Exception('更改门票信息失败');
             }
             $error_str = '';
             if (!empty($n_orders)) {
@@ -205,437 +198,6 @@ class OrderService
 
     }
 
-    /**
-     * 订单作废操作
-     * @param $order_ids
-     * @param $user_info
-     * @param $cancel_type
-     * @param $cancel_reason
-     * @return array
-     */
-    public function orderCancel($order_ids, $user_info, $cancel_type, $cancel_reason)
-    {
-        $c_order_service = new COrderService();
-        $res = $c_order_service->validateOrderCancel($order_ids);
-        if (empty($res) || empty($res['y'])) {
-            //错误信息
-            $error_str = '没有订单能够进行处理';
-            if (isset($res['n'])) {
-                $n_orders = $res['n'];
-                if (!empty($n_orders)) {
-                    $error_msg = [];
-                    foreach ($n_orders as $v) {
-                        if (!array_key_exists($v['msg'], $error_msg)) {
-                            $error_msg[$v['msg']] = [];
-                        }
-                        array_push($error_msg[$v['msg']], $v['sn']);
-                    }
-                    $error_str .= '，';
-                    foreach ($error_msg as $msg => $sns) {
-                        $error_str .= implode('、', $sns) . '：' . $msg;
-                    }
-                }
-            }
-
-            return ['success' => false, 'msg' => $error_str];
-        }
-        $y_order_ids = $res['y'];
-        $n_orders = $res['n'];
-
-        $order_info_model = new OrderInfoModel();
-        $connection = Yii::$app->db;
-        $transaction = $connection->beginTransaction();
-
-        try {
-
-            $res = $order_info_model->updateOrderStatus($y_order_ids, ConstantConfig::ORDER_STATUS_CANCEL, 0, '', -1,
-                ConstantConfig::FLAG_RED, $cancel_type, $cancel_reason);
-            if (!$res) {
-                throw new Exception('更改订单状态错误：订单作废失败');
-            }
-            //维护库存可用减未审数
-            $sync_params = $this->_getOrderMerchandiseNumbers($y_order_ids);
-            foreach ($sync_params as &$s_p) {
-                $s_p['rest_numbers'] = $s_p['numbers'];
-            }
-            if (!empty($sync_params)) {
-                $gearman_client_utils = new GearmanClientUtils();
-                $r_res = $gearman_client_utils->syncInventoryForRestNumbers($sync_params);
-                if (!empty($r_res)) {
-                    if (!$r_res['success']) {
-                        throw new Exception($r_res['msg']);
-                    }
-
-                    // 商品可用减未审数的更改
-                    $new_inventory_data = $sync_params;
-                    $new_order_store_dict = [];
-                    $new_order_data_dict = [];
-                    foreach($new_inventory_data as $new_item) {
-                        $cur_new_order_id = $new_item['order_id'];
-                        $cur_new_tore_id = $new_item['store_id'];
-                        $new_order_store_dict[$cur_new_order_id] = $cur_new_tore_id;
-                        if (!array_key_exists($cur_new_order_id, $new_order_data_dict)) {
-                            $new_order_data_dict[$cur_new_order_id] = [];
-                        }
-                        $new_item['merchandise_specification_code'] = $new_item['specification_code'];
-                        unset($new_item['specification_code']);
-                        unset($new_item['numbers']);
-                        unset($new_item['store_id']);
-                        unset($new_item['order_id']);
-                        $new_order_data_dict[$cur_new_order_id][] = $new_item;
-                    }
-
-                    foreach ($new_order_data_dict as $new_order_id=>$new_data_item) {
-                        $new_store_id = $new_order_store_dict[$new_order_id];
-                        $inventory_work = new InventoryWorker();
-                        $inventory_work->inventoryProcess([
-                            'action' => 'cancel',
-                            'action_type' => 'execute',
-                            'resource_type' => ConstantConfig::INVENTORY_RESOURCE_ORDER,
-                            'resource_id' => $new_order_id,
-                            'project_type' => CStoreService::getProjectType($new_store_id),
-                            'data' => $new_data_item
-                        ]);
-                    }
-                }else{
-                    throw new Exception('商品可用减数更改失败，未获取到返回参数');
-                }
-            }
-
-            $corder_service = new COrderService();
-            $gearman_client_utils = new GearmanClientUtils();
-            $orders = $corder_service->getOrderInfoWithDetails($y_order_ids);
-
-            //同步订单信息至进销存系统 （用户手动取消订单，在进销存中有数据）
-            $sync_orders = [];
-            foreach ($orders as $item) {
-                $sync_orders[] = $item['order_info'];
-            }
-            if (!empty($sync_orders)) {
-                $sync_res = $gearman_client_utils->UpdateOrderInfo2Psi($sync_orders);
-                if (!$sync_res['success']) {
-                    throw new Exception($sync_res['msg']);
-                }
-            }
-
-            //订单操作记录
-            $corder_service = new COrderService();
-            $action_res = $corder_service->orderActionLogs($y_order_ids, $user_info['id'], $user_info['name']);
-            if (!$action_res) {
-                throw new Exception('订单操作记录日志错误');
-            }
-
-            $error_str = '';
-            if (!empty($n_orders)) {
-                $error_msg = [];
-                foreach ($n_orders as $v) {
-                    if (!array_key_exists($v['msg'], $error_msg)) {
-                        $error_msg[$v['msg']] = [];
-                    }
-                    array_push($error_msg[$v['msg']], $v['sn']);
-                }
-                $error_str = '，下列订单无法进行作废 ';
-                foreach ($error_msg as $msg => $sns) {
-                    $error_str .= implode('、', $sns) . '：' . $msg;
-                }
-            }
-
-            $transaction->commit();
-
-
-            return ['success' => true, 'msg' => '操作成功 ' . $error_str, 'ids' => $y_order_ids];
-        } catch (Exception $e) {
-            $transaction->rollBack();
-            return ['success' => false, 'msg' => '订单作废失败：' . $e->getMessage()];
-        }
-    }
-
-    /**
-     * 订单反作废操作
-     * @param $order_ids
-     * @param $user_info
-     * @return array|int
-     */
-    public function orderAntiCancel($order_ids, $user_info)
-    {
-        $c_order_service = new COrderService();
-        $res = $c_order_service->orderAntiCancel($order_ids);
-        if (empty($res) || (empty($res['yd']) and empty($res['yc']))) {
-            return ['success' => false, 'msg' => '只有交易取消状态的订单才能反作废'];
-        }
-        $y_d_order_ids = $res['yd']; //修改为待付款状态的订单
-        $y_c_order_ids = $res['yc']; //修改为待确认状态的订单
-        $order_info_model = new OrderInfoModel();
-        $connection = Yii::$app->db;
-        $transaction = $connection->beginTransaction();
-        try {
-            //修改付款状态为待付款
-            $y_order_ids = array_merge($y_c_order_ids, $y_d_order_ids);
-            $pay_status_res = $order_info_model->updateOrderInfoByAntiCancelOrder($y_order_ids,
-                ConstantConfig::PAY_STATUS_UNPAID, ConstantConfig::MERGE_FALSE, ConstantConfig::SEPARATE_FALSE);
-            if (!$pay_status_res) {
-                throw new Exception("修改付款状态失败");
-            }
-            //修改订单状态为待付款
-            if (!empty($y_d_order_ids)) {
-                $d_res = $order_info_model->updateOrderStatus($y_d_order_ids, ConstantConfig::ORDER_STATUS_DEFAULT);
-                if (!$d_res) {
-                    throw new Exception("修改订单状态失败");
-                }
-
-                $order_info_model->updateOrderUnpaidPrice($y_d_order_ids);
-                if (!$d_res) {
-                    throw new Exception("修改订单金额失败");
-                }
-            }
-
-            //修改订单状态为待确认
-            if (!empty($y_c_order_ids)) {
-                $c_res = $order_info_model->updateOrderStatus($y_c_order_ids, ConstantConfig::ORDER_STATUS_WAITING_FOR_CONFIRMATION);
-                if (!$c_res) {
-                    throw new Exception("修改订单状态失败");
-                }
-            }
-
-            //维护库存可用减未审数
-            $sync_params = $this->_getOrderMerchandiseNumbers($y_order_ids);
-            if(!empty($sync_params)) {
-                foreach($sync_params as &$item){
-                    $temp_numbers = $item['numbers'];
-//                    $item['numbers'] = -(int)$temp_numbers;
-                    $item['rest_numbers'] = -(int)$temp_numbers;
-                }
-                $gearman_client_utils = new GearmanClientUtils();
-                $r_res = $gearman_client_utils->syncInventoryForRestNumbers($sync_params);
-                if (!empty($r_res)) {
-                    if (!$r_res['success']) {
-                        throw new Exception($r_res['msg']);
-                    }
-
-                    // 商品可用减未审数的更改
-                    $new_inventory_data = $sync_params;
-                    $new_order_store_dict = [];
-                    $new_order_data_dict = [];
-                    foreach($new_inventory_data as $new_item) {
-                        $cur_new_order_id = $new_item['order_id'];
-                        $cur_new_tore_id = $new_item['store_id'];
-                        $new_order_store_dict[$cur_new_order_id] = $cur_new_tore_id;
-                        if (!array_key_exists($cur_new_order_id, $new_order_data_dict)) {
-                            $new_order_data_dict[$cur_new_order_id] = [];
-                        }
-                        $new_item['merchandise_specification_code'] = $new_item['specification_code'];
-                        unset($new_item['specification_code']);
-                        unset($new_item['numbers']);
-                        unset($new_item['store_id']);
-                        unset($new_item['order_id']);
-                        unset($new_item['inventory_state']);
-                        $new_order_data_dict[$cur_new_order_id][] = $new_item;
-                    }
-
-                    foreach ($new_order_data_dict as $new_order_id=>$new_data_item) {
-                        $new_store_id = $new_order_store_dict[$new_order_id];
-                        $inventory_work = new InventoryWorker();
-                        $inventory_work->inventoryProcess([
-                            'action' => 'anti_cancel',
-                            'action_type' => 'execute',
-                            'resource_type' => ConstantConfig::INVENTORY_RESOURCE_ORDER,
-                            'resource_id' => $new_order_id,
-                            'project_type' => CStoreService::getProjectType($new_store_id),
-                            'data' => $new_data_item
-                        ]);
-                    }
-                }else{
-                    throw new Exception('商品可用减数更改失败，未获取到返回参数');
-                }
-            }
-
-            $corder_service = new COrderService();
-
-            //订单操作记录
-            $action_res = $corder_service->orderActionLogs($y_order_ids, $user_info['id'], $user_info['name']);
-            if (!$action_res) {
-                throw new Exception('订单操作记录日志错误');
-            }
-
-            $transaction->commit();
-
-            return ['success' => true, 'msg' => '操作成功', 'ids' => $y_order_ids, 'sysnc_params' => $sync_params];
-        } catch (Exception $e) {
-            $transaction->rollBack();
-            return ['success' => false, 'msg' => '订单反作废失败：' . $e->getMessage()];
-        }
-    }
-
-    /**
-     * 取消待付款订单，规则：在线支付订单提交3天后未支付
-     * @return array
-     * @throws \yii\db\Exception
-     */
-    public function cancelUnpaidOrder()
-    {
-        $order_info_model = new OrderInfoModel();
-        $connection = Yii::$app->db;
-        $transaction = $connection->beginTransaction();
-        try {
-            $limit_pay_day = SiteConfig::get('limit_pay_day');
-            if (empty($limit_pay_day)) {
-                return ['success' => false, 'msg' => '未检索到限制时间'];
-            }
-            $limit_time = $limit_pay_day * 24 * 60 * 60;
-            //检索出需取消的订单
-            $order_info_model->setPayType(ConstantConfig::PAY_TYPE_ONLINE);
-            $order_info_model->setPayStatus(ConstantConfig::PAY_STATUS_UNPAID);
-            $order_info_model->setOrderStatus(ConstantConfig::ORDER_STATUS_DEFAULT);
-            $current_time = Yii::$app->params['current_time'];
-            $created_limit_time = $current_time - $limit_time;
-            $need_cancel_orders = $order_info_model->getOnlineUnpaidOrder($created_limit_time);
-            if (empty($need_cancel_orders)) {
-                return ['success' => true, 'msg' => '暂无待取消订单'];
-            }
-            $order_ids = [];
-            foreach ($need_cancel_orders as $order) {
-                array_push($order_ids, $order['id']);
-            }
-
-            //取消订单
-            $res = $order_info_model->updateOrderStatus($order_ids, ConstantConfig::ORDER_STATUS_CANCEL);
-            if (!$res) {
-                throw new Exception('更改订单状态错误：订单作废失败');
-            }
-
-            //维护库存可用减未审数
-            $merchandise_list = $this->_getOrderMerchandiseNumbers($order_ids);
-            $sync_params = [];
-            $new_inventory_dict = [];
-            if(!empty($merchandise_list)){
-                foreach($merchandise_list as $merchandise){
-                    $new_inventory_data = $merchandise;
-                    $merchandise['rest_numbers'] = (int)$merchandise['numbers'];
-                    unset($merchandise['store_id']);
-                    $sync_params[] = $merchandise;
-
-                    //库存服务对接
-                    if ($merchandise['inventory_state'] == ConstantConfig::ORDER_DETAIL_INVENTORY_STATE_DEFAULT) {
-                        if (!array_key_exists($merchandise['order_id'], $new_inventory_dict)) {
-                            $new_inventory_dict[$merchandise['order_id']] = [];
-                        }
-                        $new_inventory_data['rest_numbers'] = (int)$merchandise['numbers'];
-                        $new_inventory_data['merchandise_specification_code'] = $new_inventory_data['specification_code'];
-                        unset($new_inventory_data['specification_code']);
-                        unset($new_inventory_data['numbers']);
-                        $new_inventory_dict[$merchandise['order_id']][] = $new_inventory_data;
-                    }
-                }
-            }
-            if (!empty($sync_params)) {
-                $gearman_client_utils = new GearmanClientUtils();
-                $r_res = $gearman_client_utils->syncInventoryForRestNumbers($sync_params);
-                if (!empty($r_res)) {
-                    if (!$r_res['success']) {
-                        throw new Exception($r_res['msg']);
-                    }
-
-                    if (!empty($new_inventory_dict)) {
-                        foreach ($new_inventory_dict as $new_order_id => $new_order_data_item) {
-                            $c_store_id =  $new_order_data_item['store_id'];
-                            $inventory_work = new InventoryWorker();
-                            $inventory_work->inventoryProcess([
-                                'action' => 'cancel',
-                                'action_type' => 'execute',
-                                'resource_type' => ConstantConfig::INVENTORY_RESOURCE_ORDER,
-                                'resource_id' => $new_order_id,
-                                'project_type' => CStoreService::getProjectType($c_store_id),
-                                'data' => $new_order_data_item
-                            ]);
-                        }
-                    }
-                }else{
-                    throw new Exception('商品可用减数更改失败，未获取到返回参数');
-                }
-            }
-
-            //订单操作记录
-            $c_order_service = new COrderService();
-            $action_res = $c_order_service->orderActionLogs($order_ids);
-            if (!$action_res) {
-                throw new Exception('订单操作记录日志错误');
-            }
-
-            $transaction->commit();
-            return ['success' => true, 'msg' => '操作成功'];
-        } catch (Exception $e) {
-            $transaction->rollBack();
-            return ['success' => false, 'msg' => '订单作废失败：' . $e->getMessage()];
-        }
-    }
-
-    
-    /**
-     * 申请退款
-     * @param $order_ids
-     * @param $user_info
-     * @return array
-     */
-    public function applyRefund($order_ids, $user_info)
-    {
-        //检测订单能否申请退款
-        $corder_service = new COrderService();
-        $validate_res = $corder_service->validateApplyRefund($order_ids);
-        if (empty($validate_res) || empty($validate_res['y'])) {
-            return ['success' => false, 'msg' => '系统只支持待确认状态的订单进行申请退款，请反审后再操作'];
-        }
-        $y_order_ids = $validate_res['y'];
-        $n_order_ids = $validate_res['n'];
-
-        $order_info_model = new OrderInfoModel();
-        $connection = Yii::$app->db;
-        $transaction = $connection->beginTransaction();
-        try {
-            $res = $order_info_model->updatePayStatus($y_order_ids, ConstantConfig::PAY_STATUS_REFUNDING);
-            if (!$res) {
-                throw new Exception('订单退款失败');
-            }
-
-            //订单操作记录
-            $c_order_service = new COrderService();
-            $action_res = $c_order_service->orderActionLogs($y_order_ids, $user_info['id'], $user_info['name']);
-            if (!$action_res) {
-                throw new Exception('订单操作记录日志错误');
-            }
-
-            //后端作业 指定天数（7天）后自动完成退款
-            //            $order_client = new OrderClient();
-            //            $order_client->automateCompleteRefund($y_order_ids);
-
-            $transaction->commit();
-
-            //状态有误订单
-            $error_str = '';
-            if (!empty($n_order_ids)) {
-                $error_ids = join(',', $n_order_ids);
-                $error_str = '，申请退款只支持待确认订单，下列订单状态错误：' . $error_ids;
-            }
-
-            //同步订单信息至PPC
-            $gearman_client_utils = new GearmanClientUtils();
-            $orders = $c_order_service->getOrderInfoWithDetails($y_order_ids);
-            $gearman_client_utils->syncOrderInfo2PPC($orders);
-            // 筛出订单信息，进行同步
-            $need_sync_orders = array_map(function ($order) {
-                return $order['order_info'];
-            }, $orders);
-            $gearman_client_utils->UpdateOrderInfo2Psi($need_sync_orders);
-            // 申请退款时，需要同步推送至EC
-            $gearman_client_utils->syncOrderLogisticsPush($orders);
-
-            return ['success' => true, 'msg' => '操作成功' . $error_str, 'ids' => $y_order_ids,
-                'pay_status_str' => ConstantConfig::PAY_STATUS_STR_REFUNDING];
-        } catch (Exception $e) {
-            $transaction->rollBack();
-            $connection->close();
-            return ['success' => false, 'msg' => '申请退款失败：' . $e->getMessage()];
-        }
-    }
     /**
      * 导出订单
      * @param $query
@@ -713,6 +275,7 @@ class OrderService
 
         return ["success" => true, "data" => $return_data, "ids" => $order_ids];
     }
+
     /**
      * 判断订单是否能够进行客审或反审
      * @param $order_ids
@@ -721,20 +284,21 @@ class OrderService
      */
     public function validateOrderStatusCanToExample($order_ids, $action_type)
     {
-        if (!in_array($action_type, ConstantConfig::confirmationActionType())){
+        if (!in_array($action_type, ConstantConfig::confirmationActionType())) {
             return [];
         }
 
         $c_order_service = new COrderService();
         $order_info_list = $c_order_service->getOrderInfoWithDetails($order_ids);
 
-        if(empty($order_info_list)){
+        if (empty($order_info_list)) {
             return [];
         }
 
         $y_array = [];//能进行客审或反审的订单
+        $id_array = [];//修改景区表状态
         $n_array = [];//不能进行客审的订单数组[$order_sn=>$error_msg]
-        foreach($order_info_list as $item){
+        foreach ($order_info_list as $item) {
             $order_info = $item['order_info'];
             $order_id = $order_info['id'];
             $order_sn = $order_info['sn']; // 订单号
@@ -742,33 +306,43 @@ class OrderService
             $pay_status = $order_info['pay_status']; //付款状态
             $paid_price = floatval($order_info['paid_price']); //已付金额
             $pay_price = floatval($order_info['pay_price']); //应付金额
-            if($action_type == ConstantConfig::CONFIRMATION_ACTION_TYPE_TO_EXAMINE &&
-                $order_status == ConstantConfig::ORDER_STATUS_WAITING_FOR_CONFIRMATION){//客审 等待确认
+            $order_type = $order_info['order_type']; //订单类型
+            if ($action_type == ConstantConfig::CONFIRMATION_ACTION_TYPE_TO_EXAMINE &&
+                $order_status == ConstantConfig::ORDER_STATUS_WAITING_FOR_CONFIRMATION
+            ) {//客审 等待确认
                 //已付金额
-                if($paid_price > $pay_price){
+                if ($paid_price > $pay_price) {
                     array_push($n_array, ['sn' => $order_sn, 'msg' => '已支付金额不能大于应付金额']);
                     continue;
                 }
                 //付款状态
-                if($pay_status==ConstantConfig::PAY_STATUS_REFUNDING){
-                    array_push($n_array, ['sn'=>$order_sn, 'msg'=>'退款中订单不能进行客审']);
+                if ($pay_status == ConstantConfig::PAY_STATUS_REFUNDING) {
+                    array_push($n_array, ['sn' => $order_sn, 'msg' => '退款中订单不能进行客审']);
                     continue;
                 }
                 //订单明细
                 $order_details = $item['details'];
-                if(empty($order_details)){
-                    array_push($n_array, ['sn'=>$order_sn, 'msg'=>'无商品信息']);
+                if (empty($order_details)) {
+                    array_push($n_array, ['sn' => $order_sn, 'msg' => '无商品信息']);
                     continue;
+                }
+                if ($order_type == 2) {
+                    array_push($id_array, $order_id);
                 }
                 array_push($y_array, $order_id);
 
-            }elseif($action_type == ConstantConfig::CONFIRMATION_ACTION_TYPE_CANCEL_EXAMINE){
+            } elseif ($action_type == ConstantConfig::CONFIRMATION_ACTION_TYPE_CANCEL_EXAMINE
+                and $order_status == ConstantConfig::ORDER_STATUS_COMPLETE
+            ) {
+                if ($order_type == 2) {
+                    array_push($id_array, $order_id);
+                }
                 array_push($y_array, $order_id);
-            }else{
-                array_push($n_array, ['sn'=>$order_sn, 'msg'=>'订单状态有误']);
+            } else {
+                array_push($n_array, ['sn' => $order_sn, 'msg' => '订单状态有误']);
             }
         }
-        return ['y'=>$y_array, 'n'=>$n_array];
+        return ['y' => $y_array, 'n' => $n_array, 'ids' => $id_array];
     }
 
     /**
@@ -782,7 +356,7 @@ class OrderService
         if (empty($service_ids) || empty($user_info)) {
             return ['success' => false, 'msg' => '参数传递错误'];
         }
-        //获取订单明细
+        //获取订单表信息
         $order_info_model = new OrderInfoModel();
         $order_info = $order_info_model->getOrderInfoList($service_ids);
         if (empty($order_info)) {
@@ -791,33 +365,210 @@ class OrderService
         //状态确认
         $need_process_ids = [];
         $state_error_data = [];
+        //
+        $valid_user_id = [];//需要退款的用户
+        $current_time = time();
         foreach ($order_info as $order_item) {
             $pay_status = $order_item['pay_status'];
             $id = $order_item['id'];
             $order_sn = $order_item['sn'];
-            if ($pay_status == ConstantConfig::PAY_STATUS_REFUNDING) {
+            $user_id = $order_item['user_id'];
+            $paid_price = $order_item['paid_price'];
+            $admission_time = $order_item['admission_time'];
+            if ($pay_status == ConstantConfig::PAY_STATUS_REFUNDING && $admission_time - $current_time > 0) {
                 $need_process_ids[] = $id;
+                $valid_user_id[$user_id] = $paid_price;
             } else {
                 $state_error_data[] = $order_sn;
             }
         }
         if (empty($need_process_ids)) {
-            return ['success' => false, 'msg' => "订单付款状态有误,无数据处理", 'error_data' => $state_error_data];
+            return ['success' => false, 'msg' => "订单付款状态有误或已入园,无数据处理", 'error_data' => $state_error_data];
         }
-
+        $scenic_id_arr = [];//需要删除景区进程
+        $valid_order_id = [];
+        foreach ($order_info as $item) {
+            $order_type = $item['order_type'];
+            $scenic_id = $item['scenic_id'];
+            $user_id = $item['user_id'];
+            $order_id = $item['id'];
+            if ($order_type == 2) {
+                $scenic_id_arr[$user_id] = $scenic_id;
+                $valid_order_id[] = $order_id;
+            }
+        }
+        //获取订单明细
+        $order_details_model = new OrderDetailsModel();
+        $details = $order_details_model->getOrderDetailByIds($valid_order_id);
+        $valid_details = [];
+        if (!empty($details)) {
+            foreach ($details as $detail_item) {
+//                $numbers = $detail_item['ticket_numbers'];
+                $valid_details[$detail_item['scenic_id']] = $detail_item;
+            }
+        }
+        $scenic_model = new ScenicModel();
+        $all_scenic_info = [];
+        foreach ($scenic_id_arr as $user_id => $scenic_id) {
+            $scenic_info = $scenic_model->getScenicInfo($user_id, $scenic_id);
+            $all_scenic_info[] = $scenic_info;
+        }
+        //删除景区id;
+        $delete_scenic_ids = [];
+        //门票
+        $valid_scenic_ids = [];
+        foreach ($all_scenic_info as $item) {
+            $status = $item['status'];
+            $scenic_id = $item['id'];
+            if ($status == 3) {
+                $delete_scenic_ids[] = $scenic_id;
+            } else {
+                $valid_scenic_ids[] = $scenic_id;
+            }
+        }
+        $ticket_model = new TicketModel();
+        $update_ticket_ids = [];
+        if (!empty($valid_scenic_ids)) {
+            //查找此景区的门票信息
+            $ticket_info = $ticket_model->getTicketInfo($valid_scenic_ids);
+            foreach ($ticket_info as $ticket) {
+                $scenic_id = $ticket['scenic_id'];
+                $parent_id = $ticket['parent_id'];
+                $ticket_id = $ticket['id'];
+                if (!empty($valid_details) and array_key_exists($scenic_id, $valid_details)) {
+                    $detail_item = $valid_details[$scenic_id];
+                    foreach ($detail_item as $value) {
+                        $parent_ticket_id = $value['ticket_id'];
+                        $numbers = $value['ticket_numbers'];
+                        if ($parent_ticket_id == $parent_id) {
+                            $update_ticket_ids[$ticket_id] = $numbers;
+                        }
+                    }
+                }
+            }
+        }
+        $user_info_model = new UserInfoModel();
         $connection = Yii::$app->db;
         $transaction = $connection->beginTransaction();
         try {
-            $res = $order_info_model->updateRefundStatus($need_process_ids, ConstantConfig::PAY_STATUS_REFUNDED);
+            $res = $order_info_model->updateOrderAndPayStatus(
+                $need_process_ids,
+                ConstantConfig::ORDER_STATUS_CANCEL, ConstantConfig::PAY_STATUS_REFUNDED);
             if (!$res) {
-                throw new Exception('更新订单付款状态失败');
+                throw new Exception('更新订单退款状态和订单状态失败');
+            }
+            foreach ($valid_user_id as $user_id => $paid_price) {
+                //更新用户金额
+                $user_info_model->updatePrice($user_id, $paid_price);
+            }
+            if (!empty($delete_scenic_ids)) {
+                $scenic_res = $scenic_model->deleteScenicInfo($delete_scenic_ids);
+                if (!$scenic_res) {
+                    throw new Exception('删除景区信息失败');
+                }
+            }
+            foreach ($valid_user_id as $user_id => $paid_price) {
+                //更新用户金额
+                $user_info_model->updatePrice($user_id, $paid_price);
+            }
+            if (!empty($update_ticket_ids)) {
+                foreach ($update_ticket_ids as $ticket_id => $number) {
+                    $ticket_model->updateTicketInfo($ticket_id, $number);
+                }
             }
             $transaction->commit();
             return ["success" => true, "msg" => "退款审核操作成功", "ids" => $need_process_ids, "error_data" => $state_error_data];
         } catch (Exception $e) {
             $transaction->rollBack();
-            return ['success' => false, "msg" => "退款审核操作失败:" . $e->getMessage(), 'error_data' => $state_error_data,'ids'=>$need_process_ids];
+            return ['success' => false, "msg" => "退款审核操作失败:" . $e->getMessage(), 'error_data' => $state_error_data, 'ids' => $need_process_ids];
         }
 
+    }
+
+    /**
+     * 取消待付款订单，规则：在线支付订单提交3天后未支付
+     * @return array
+     * @throws \yii\db\Exception
+     */
+    public function cancelUnpaidOrder()
+    {
+        $order_info_model = new OrderInfoModel();
+        $connection = Yii::$app->db;
+        $transaction = $connection->beginTransaction();
+        try {
+            $pay_time = 3; //三小时未支付取消订单
+            $limit_time =  $pay_time * 60 * 60;
+//            $limit_time =   1 * 60;
+
+            //检索出需取消的订单
+            $order_info_model->setPayStatus(ConstantConfig::PAY_STATUS_UNPAID);
+            $order_info_model->setOrderStatus(ConstantConfig::ORDER_STATUS_DEFAULT);
+            $current_time = Yii::$app->params['current_time'];
+            $created_limit_time = $current_time - $limit_time;
+            $need_cancel_orders = $order_info_model->getOnlineUnpaidOrder($created_limit_time);
+            if (empty($need_cancel_orders)) {
+                return ['success' => true, 'msg' => '暂无待取消订单'];
+            }
+            $order_ids = [];
+            foreach ($need_cancel_orders as $order) {
+                array_push($order_ids, $order['id']);
+            }
+            //取消订单
+            $res = $order_info_model->updateOrderStatus($order_ids, ConstantConfig::ORDER_STATUS_CANCEL);
+            if (!$res) {
+                throw new Exception('更改订单状态错误：订单作废失败');
+            }
+            $transaction->commit();
+            return ['success' => true, 'msg' => '操作成功'];
+        } catch (Exception $e) {
+            $transaction->rollBack();
+            return ['success' => false, 'msg' => '订单作废失败：' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 完成退款
+     * @param $order_ids
+     * @param $user_info
+     * @return array
+     * @throws \yii\db\Exception
+     */
+    public function completeRefund($order_ids, $user_info = null)
+    {
+        //检测订单能否完成退款
+        $corder_service = new COrderService();
+        $validate_res = $corder_service->validateCompleteRefund($order_ids);
+        if (empty($validate_res) || empty($validate_res['y'])) {
+            return ['success' => false, 'msg' => '参数错误或没有订单能够退款'];
+        }
+        $y_order_ids = $validate_res['y'];
+        $n_order_ids = $validate_res['n'];
+
+        $order_info_model = new OrderInfoModel();
+        $connection = Yii::$app->db;
+        $transaction = $connection->beginTransaction();
+        try {
+            // 修改订单退款信息
+            $update_res = $order_info_model->updateOrderAndPayStatus(
+                $y_order_ids, ConstantConfig::ORDER_STATUS_CANCEL,
+                ConstantConfig::PAY_STATUS_REFUNDED
+            );
+            if (!$update_res) {
+                throw new Exception('订单退款失败');
+            }
+            $transaction->commit();
+
+            $error_str = '';
+            if (!empty($n_order_ids)) {
+                $error_ids = join(',', $n_order_ids);
+                $error_str = ',下列订单状态错误：' . $error_ids;
+            }
+
+            return ['success' => true, 'msg' => '操作成功' . $error_str, 'ids' => $y_order_ids];
+        } catch (Exception $e) {
+            $transaction->rollBack();
+            $connection->close();
+            return ['success' => false, 'msg' => '申请退款失败：' . $e->getMessage()];
+        }
     }
 }

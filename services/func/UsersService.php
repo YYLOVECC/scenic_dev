@@ -10,6 +10,7 @@ namespace app\services\func;
 use app\models\ActionsModel;
 use app\models\RoleModuleActionsModel;
 use app\models\UserRolesModel;
+use app\models\UsersModel;
 use app\services\role\CRoleService;
 use app\util\RedisUtil;
 use Exception;
@@ -276,12 +277,23 @@ class UsersService
     }
 
     /**
-     * 获取所有用户的name和email
+     * 获取所有用户信息
      * @return array
      */
     public function getAllUserInfo(){
         $admin_user_model = new AdminUsersModel();
         $all_user_info = $admin_user_model->getAllUserInfo();
+        if (!empty($all_user_info)) {
+            return $all_user_info;
+        }
+    }
+
+    /**
+     * 获取用户
+     */
+    public function getAllUser() {
+        $user_model  = new UsersModel();
+        $all_user_info = $user_model->getUserInfo();
         if (!empty($all_user_info)) {
             return $all_user_info;
         }

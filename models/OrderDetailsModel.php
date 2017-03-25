@@ -26,7 +26,7 @@ class OrderDetailsModel
     private $_status;
     private $_updated_at;
     private $_created_at;
-    private $_column_str = 'id,order_id, order_sn, scenic_id, scenic_name, ticket_name,ticket_price, ticket_numbers, ticket_amount, status, created_at,created_at';
+    private $_column_str = 'id,order_id, order_sn, scenic_id, scenic_name, ticket_id, ticket_name,ticket_price, ticket_numbers, ticket_amount, status, created_at,created_at';
 
     /**
      * @return mixed

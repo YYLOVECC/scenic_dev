@@ -32,17 +32,17 @@ class OrderInfoModel
     private $_updated_at;
     private $_created_at;
 
-    private $_column_str = 'id,sn,tourist_name,scenic_id,scenic_name,mobile,distributor_id,distributor_name,
-                            pay_price,paid_price,pay_status,order_status,admission_time,play_time,
+    private $_column_str = 'id,sn,tourist_name,user_id,scenic_id,scenic_name,mobile,distributor_id,distributor_name,
+                            pay_price,paid_price,pay_status,order_type,order_status,admission_time,play_time,
                             audit_user_id,audit_user_name,audit_at,remark,status,updated_at,created_at';
 
     private $_ordinal_str_array = array('created_at', 'pay_mode', 'pay_type', 'pay_status',
-                                       'ticket_price', 'order_status');
+        'ticket_price', 'order_status');
 
     private $_ordinal_type_array = array('ASC', 'DESC');
 
     private $_edit_field_array = array('pay_mode' => "支付途径", 'pay_type' => "支付方式",
-                                     'remark' => "卖家备注");
+        'remark' => "卖家备注");
 
     /**
      * @return mixed
@@ -75,6 +75,7 @@ class OrderInfoModel
     {
         $this->_audit_user_name = $audit_user_name;
     }
+
     /**
      * @param mixed $created_at
      */
@@ -90,6 +91,7 @@ class OrderInfoModel
     {
         return $this->_created_at;
     }
+
     /**
      * @param mixed $id
      */
@@ -105,6 +107,7 @@ class OrderInfoModel
     {
         return $this->_id;
     }
+
     /**
      * @param mixed $mobile
      */
@@ -136,6 +139,7 @@ class OrderInfoModel
     {
         return $this->_order_status;
     }
+
     /**
      * @param mixed $pay_at
      */
@@ -231,6 +235,7 @@ class OrderInfoModel
     {
         return $this->_remark;
     }
+
     /**
      * @param mixed $sn
      */
@@ -262,6 +267,7 @@ class OrderInfoModel
     {
         return $this->_status;
     }
+
     /**
      * @param mixed $updated_at
      */
@@ -356,15 +362,16 @@ class OrderInfoModel
         return $result;
     }
 
-    private function _innerSearchQuery($query){
-        $sql='';
-        $data=[];
+    private function _innerSearchQuery($query)
+    {
+        $sql = '';
+        $data = [];
         if (array_key_exists('id', $query) and !empty($query['id'])) {
             $id = $query['id'];
-            if(is_array($id) and count($id)>1){
-                $sql .= " AND id in(" . implode(',', $id) .")";
-            }else{
-                if(is_array($id)){
+            if (is_array($id) and count($id) > 1) {
+                $sql .= " AND id in(" . implode(',', $id) . ")";
+            } else {
+                if (is_array($id)) {
                     $id = $id[0];
                 }
                 $sql .= " AND id=:id";
@@ -374,7 +381,7 @@ class OrderInfoModel
         } elseif (array_key_exists('sn', $query) and !empty($query['sn'])) {
             //订单号
             $sql .= " AND instr(oi.sn, '" . $query['sn'] . "')";
-        }  else {
+        } else {
             //下单时间
             if ($query['created_at_begin'] > 0) {
                 $sql .= ' AND oi.created_at >= :created_at_begin';
@@ -385,19 +392,19 @@ class OrderInfoModel
                 $data[':created_at_end'] = $query['created_at_end'];
             }
             //订单状态
-            if (isset($query['order_status']) and $query['order_status']>=0) {
+            if (isset($query['order_status']) and $query['order_status'] >= 0) {
                 $sql .= ' AND oi.order_status = :order_status';
                 $data[':order_status'] = $query['order_status'];
             }
             //付款状态
-            if (isset($query['pay_status']) and $query['pay_status']>=0) {
+            if (isset($query['pay_status']) and $query['pay_status'] >= 0) {
                 $sql .= ' AND oi.pay_status = :pay_status';
                 $data[':pay_status'] = $query['pay_status'];
             }
 
             //手机号码
             if (array_key_exists('mobile', $query) and !empty($query['mobile'])) {
-                $sql .= ' AND instr(oi.mobile, ":mobile")';
+                $sql .= ' AND instr(oi.mobile, :mobile)';
                 $data[':mobile'] = $query['mobile'];
             }
             //景点名称
@@ -411,9 +418,9 @@ class OrderInfoModel
                 $data[':tourist_name'] = $query['tourist_name'];
             }
             //经销商名称
-            if (array_key_exists('distributor_id', $query) and $query['distributor_id']>0) {
-                $sql .= ' AND oi.distributor_id=:distributor_id';
-                $data[':distributor_id'] = $query['distributor_id'];
+            if (array_key_exists('distributor_name', $query) and !empty($query['distributor_name'])) {
+                $sql .= ' AND oi.distributor_name=:distributor_name';
+                $data[':distributor_name'] = $query['distributor_name'];
             }
             //客审人
             if (array_key_exists('audit_user_id', $query) and $query['audit_user_id'] > 0) {
@@ -421,17 +428,18 @@ class OrderInfoModel
                 $data[':audit_user_id'] = $query['audit_user_id'];
             }
             //门票价格
-            if ($query['ticket_price_begin'] > 0) {
-                $sql .= ' AND oi.ticket_price >= :ticket_price_begin';
-                $data[':ticket_price_begin'] = $query['ticket_price_begin'];
+            if ($query['pay_price_begin'] > 0) {
+                $sql .= ' AND oi.pay_price >= :pay_price_begin';
+                $data[':pay_price_begin'] = $query['pay_price_begin'];
             }
-            if ($query['ticket_price_end'] > 0) {
-                $sql .= ' AND oi.ticket_price <= :ticket_price_end';
-                $data[':ticket_price_end'] = $query['ticket_price_end'];
+            if ($query['pay_price_end'] > 0) {
+                $sql .= ' AND oi.pay_price <= :pay_price_end';
+                $data[':pay_price_end'] = $query['pay_price_end'];
             }
         }
-        return ['sql'=>$sql, 'data'=>$data];
+        return ['sql' => $sql, 'data' => $data];
     }
+
     /**
      * 根据订单id获取订单信息
      * @return array|bool
@@ -506,6 +514,7 @@ class OrderInfoModel
         }
 
     }
+
     /**
      * 修改付款状态
      * @param $order_ids
@@ -543,6 +552,7 @@ class OrderInfoModel
             throw $e;
         }
     }
+
     public function updateOrderPayStatus()
     {
         $sql = "UPDATE order_info SET updated_at=:updated_at , pay_status=:pay_status, order_status=:order_status WHERE id=:id";
@@ -562,6 +572,7 @@ class OrderInfoModel
             return false;
         }
     }
+
     /**
      * 更新退款状态
      * @param $order_ids
@@ -591,6 +602,95 @@ class OrderInfoModel
             $command->bindParam(':pay_status', $pay_status, PDO::PARAM_INT);
             $command->execute();
             return true;
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * 获取支付方式未在线支付的待付款订单
+     * @param $created_limit_time
+     * @return array
+     */
+    public function getOnlineUnpaidOrder($created_limit_time)
+    {
+        if (empty($created_limit_time)) {
+            return [];
+        }
+        $created_limit_time = date('Y-m-d H:i:s');
+        $sql = "SELECT * FROM order_info WHERE  pay_status =:pay_status  AND
+                order_status=:order_status AND status=0 AND order_type!=3 AND created_at < :limit_time";
+        $connection = Yii::$app->db;
+        $command = $connection->createCommand($sql);
+        $command->bindParam(':pay_status', $this->_pay_status, PDO::PARAM_INT);
+        $command->bindParam(':order_status', $this->_order_status, PDO::PARAM_INT);
+        $command->bindParam(':limit_time', $created_limit_time, PDO::PARAM_STR);
+        return $result = $command->queryAll();
+    }
+
+    /**
+     * @param $y_order_ids
+     * @param $order_status
+     * @return bool|int
+     * @throws Exception
+     */
+    public function updateOrderStatus($y_order_ids, $order_status)
+    {
+        $all_order_status = ConstantConfig::orderStatusArray();
+        if (empty($y_order_ids) || !array_key_exists($order_status, $all_order_status)) {
+            return 0;
+        }
+        $sql = " UPDATE order_info SET updated_at=:updated_at , order_status=:order_status";
+        if (is_array($y_order_ids)) {
+            $ids = implode(',', $y_order_ids);
+        } else {
+            $ids = $y_order_ids;
+        }
+        $sql .= ' WHERE id in (' . $ids . ')';
+        $connection = Yii::$app->db;
+        try {
+
+            $command = $connection->createCommand($sql);
+            $cur_time = time();
+            $update_at = date('Y-m-d H:i:s', $cur_time);
+            $command->bindParam(':updated_at', $update_at, PDO::PARAM_INT);
+            $command->bindParam(':order_status', $order_status, PDO::PARAM_INT);
+            $command->execute();
+            return true;
+        } catch (Exception $e) {
+            throw $e;
+        }
+
+    }
+
+    /**
+     * @param $order_ids
+     * @param $order_status
+     * @param $pay_status
+     * @return int
+     * @throws Exception
+     */
+    public function updateOrderAndPayStatus($order_ids, $order_status, $pay_status)
+    {
+        if (empty($order_ids) || empty($order_status) || empty($pay_status)) {
+            return 0;
+        }
+        if (is_array($order_ids)) {
+            $in_order_ids = implode(',', $order_ids);
+        } else {
+            $in_order_ids = $order_ids;
+        }
+        $sql = " UPDATE order_info SET updated_at=:updated_at,order_status=:order_status, pay_status=:pay_status
+                 WHERE id in (" . $in_order_ids . ")";
+        $connection = Yii::$app->db;
+        $command = $connection->createCommand($sql);
+        $cur_time = time();
+        $updated_at = date('Y-m-d H:i:s', $cur_time);
+        try {
+            $command->bindParam(':updated_at', $updated_at, PDO::PARAM_INT);
+            $command->bindParam(':order_status', $order_status, PDO::PARAM_INT);
+            $command->bindParam(':pay_status', $pay_status, PDO::PARAM_INT);
+            return $command->execute();
         } catch (Exception $e) {
             throw $e;
         }

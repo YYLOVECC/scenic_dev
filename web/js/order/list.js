@@ -16,14 +16,16 @@
         var post_data      = {};
         var riqi           = $('#riqi').val(),
             order_sn       = $('#order_sn').val(),
-            scenic_name    = $('#scenic_name').val(),
+            scenic_id      = $('#scenic_name option:selected').val(),
+            scenic_name    = $('#scenic_name option:selected').text(),
             mobile         = $('#mobile').val(),
             tourist_name   = $('#tourist_name').val(),
             order_status   = $('#order_status').val(),
             pay_status     = $('#pay_status').val(),
-            ticket_price   = $('#ticket_price').val(),
+            pay_price      = $('#pay_price').val(),
             audit_user     = $('#audit_user_id').val(),
-            distributor_id        = $('#distributor_id').val();
+            distributor_id = $('#distributor_id option:selected').val(),
+            distributor_name = $('#distributor_id option:selected').text();
 
 
 		// 判断是否包含日期条件
@@ -36,16 +38,16 @@
 			post_data['sn'] = order_sn.trim();
 		}
 		//门票名称
-        if (scenic_name) {
-		    post_data['scenic_name'] = scenic_name;
+        if (scenic_id>0) {
+		    post_data['scenic_name'] = scenic_name.trim();
         }
         // 判断是否包含手机号码条件
 	    if (mobile) {
-			post_data['mobile'] = mobile;
+			post_data['mobile'] = mobile.trim();
 		}
 		//游客姓名
         if (tourist_name) {
-		    post_data['tourist_name'] = tourist_name;
+		    post_data['tourist_name'] = tourist_name.trim();
         }
 	    // 判断是否包含订单状态条件(默认请求代发货的数据)
 	    if (order_status) {
@@ -55,15 +57,17 @@
 	    if(pay_status >-1) {
 		    post_data['pay_status'] = parseInt(pay_status);
         }
-	    if (ticket_price) {
-		    post_data['ticket_price'] = ticket_price;
+        //支付金额
+	    if (pay_price) {
+		    post_data['pay_price'] = pay_price;
         }
+        //客审人
         if (audit_user) {
 		    post_data['audit_user_id'] = audit_user;
         }
         //经销商
-        if (distributor_id>0) {
-		    post_data['distributor_id'] = distributor_id;
+        if (distributor_id >0) {
+		    post_data['distributor_name'] = distributor_name;
         }
 
 		return post_data;
@@ -135,6 +139,30 @@
             listForm.page = 1;
             listForm.loadList();
             $('#checked_count').html(0);
+        });
+        /**
+         * 获取checkbox的选中值
+         */
+        var getSelectedCheckboxValues = function() {
+            var ids = [];
+            $('input[name="ckbox"]:checked').each(function (index, item) {
+                ids.push($(item).data('id'));
+            });
+            return ids.join(',');
+        }
+        /**
+         * 统计勾选的总数
+         */
+        var countSelectedItems = function() {
+            var checkedItems = getSelectedCheckboxValues(),
+                checkedItemArr = checkedItems.split(',').filter(function (item) {
+                    return item != "";
+                });
+            $('#checked_count').html(checkedItemArr.length);
+        };
+        // `common.js`中条目的点击后会触发该全局绑定事件
+        $('body').on('OrderList:UpdateSelectedItems', function() {
+            countSelectedItems();
         });
         // 日期控件绑定
         Kalendae.moment.lang("zh-cn", {

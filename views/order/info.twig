@@ -44,6 +44,13 @@
         <em class="red" id="order_status_{{ order_info.id }}">{{ order_info.order_status_str }}</em>
         <b class="c3">付款状态:</b>
         <em class="red" id="order_status_{{ order_info.id }}">{{ order_info.pay_status_str }}</em>
+        <b class="c3">入园状态:</b>
+        <em class ="red" id="admission_status">
+            {% if order_info.admission_time - current_time <0 %} 已入园
+            {% else %}
+            未入园
+            {% endif %}
+        </em>
         <em class="pl10">应付金额：</em><em class="red">￥</em><em class="red">{{ order_info.pay_price }}</em>
                 (已付金额:<em class="red">￥</em><em class="red" id="paid_price">{{ order_info.paid_price }})</em>
     </div>
@@ -57,12 +64,19 @@
         <tr>
             <td width="40%">经销商：{{ order_info.distributor_name }}</td>
             <td width="30%">审核人：{{ order_info.audit_user_name}}</td>
-            <td width="%30">审核时间：{{ order_info.audit_at }}</td>
+            <td width="%30">审核时间：
+                {% if order_info.audit_at >0 %}
+                    {{ order_info.audit_at|date('Y-m-d G:i:s') }}
+                {% endif %}
+                </td>
         </tr>
         <tr>
-            <td width="30%">预定时间：{{ order_info.created_at }}</td>
-            <td width="40%">入园时间：{{ order_info.admission_time|date('Y-m-d G:i:s') }}</td>
-            <td width="30%">游玩时间：{{ order_info.play_time|date('Y-m-d G:i:s') }}</em></td>
+            <td width="30%">预定时间：{{ order_info.created_at}}</td>
+            <td width="40%">入园时间：
+                {% if order_info.admission_time>0 %}
+                    {{ order_info.admission_time|date('Y-m-d G:i:s') }}
+                {% endif %}</td>
+            <td width="30%">游玩时间：{% if order_info.play_time>0 %}{{ order_info.play_time|date('Y-m-d G:i:s') }}{% endif %}</em></td>
         </tr>
         <tr>
             <td width="40%">游客姓名：{% if order_info.tourist_name %}{{ order_info.tourist_name }}{% else %}匿名用户{% endif %}</td>
